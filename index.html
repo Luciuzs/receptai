@@ -90,6 +90,22 @@ dialog[open]{animation:up .22s ease-out}
 .sheet h3{font-size:16px; font-weight:800; margin:16px 0 6px}
 .sheet ul,.sheet ol{margin:0; padding-left:22px}
 .sheet li{margin:5px 0}
+.go{display:block; width:100%; font:inherit; font-weight:800; font-size:17px; margin:12px 0 4px;
+  background:var(--accent); color:var(--accent-ink); border:0; border-radius:14px; padding:13px; cursor:pointer}
+.cook[hidden],.view[hidden]{display:none}
+.bar{height:5px; background:var(--bg); border-radius:9px; overflow:hidden; margin:4px 0 18px}
+.bar i{display:block; height:100%; background:var(--accent); transition:width .2s}
+.stepno{color:var(--muted); font-weight:600; font-size:15px; margin:0 0 6px}
+.steptxt{font-size:25px; font-weight:600; line-height:1.3; letter-spacing:-.01em; margin:0 0 18px; min-height:5.2em}
+.steptxt ul{font-size:19px; font-weight:400; padding-left:22px; margin:0}
+.timer{font:inherit; font-weight:800; font-size:20px; color:var(--ink); background:var(--bg);
+  border:1.5px solid var(--line); border-radius:14px; padding:12px 18px; cursor:pointer; margin-bottom:18px}
+.timer.run{border-color:var(--accent)}
+.timer.done{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.nav{display:grid; grid-template-columns:1fr 2fr; gap:10px}
+.nav button{font:inherit; font-weight:800; font-size:17px; border-radius:14px; padding:14px; cursor:pointer; border:1.5px solid var(--line); background:none; color:var(--ink)}
+.nav button.next{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.go:focus-visible,.timer:focus-visible,.nav button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 </style>
 </head>
 <body>
@@ -117,11 +133,21 @@ dialog[open]{animation:up .22s ease-out}
   <div class="sheet">
     <header><h2 id="dt"></h2><button class="close" aria-label="Uždaryti" onclick="d.close()">✕</button></header>
     <p class="meta" id="dm"></p>
+    <div class="view" id="view">
     <div class="vt" id="vt" role="group" aria-label="Variantas">
       <button data-v="0">Su mėsa</button><button class="veg" data-v="1">Vegetariškai</button>
     </div>
+    <button class="go" id="go">Gaminti</button>
     <h3>Reikės</h3><ul id="di"></ul>
     <h3>Gaminimas</h3><ol id="ds"></ol>
+    </div>
+    <div class="cook" id="cook" hidden>
+      <div class="bar"><i id="cbar"></i></div>
+      <p class="stepno" id="cno"></p>
+      <div class="steptxt" id="ctxt"></div>
+      <button class="timer" id="ctimer" hidden></button>
+      <div class="nav"><button id="cprev">Atgal</button><button class="next" id="cnext">Toliau</button></div>
+    </div>
   </div>
 </dialog>
 
@@ -335,9 +361,63 @@ list.onclick = e => {
   cur = R[el.dataset.i];
   vt.hidden = !hasAlt(cur);
   curVeg = diet === 'veg';
-  fill(); d.showModal();
+  endCook(); fill(); d.showModal();
 };
 d.addEventListener('click', e => { if (e.target === d) d.close(); });
+
+/* ---------- Gaminimo režimas ---------- */
+const view = document.getElementById('view'), cook = document.getElementById('cook');
+const ctimer = document.getElementById('ctimer');
+let steps = [], ing = [], k = 0, tInt = null, tLeft = 0, lock = null;
+
+function fmt(s){ return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+function stopTimer(){ clearInterval(tInt); tInt = null; ctimer.className = 'timer'; }
+function beep(){
+  try{ navigator.vibrate && navigator.vibrate([300,150,300,150,300]);
+    const a = new (window.AudioContext||window.webkitAudioContext)();
+    [0,.35,.7].forEach(t => { const o = a.createOscillator(); o.frequency.value = 880; o.connect(a.destination); o.start(a.currentTime+t); o.stop(a.currentTime+t+.2); });
+  }catch(e){}
+}
+function showStep(){
+  stopTimer();
+  const total = steps.length + 1;
+  cbar.style.width = ((k+1)/total*100) + '%';
+  if (k === 0){
+    cno.textContent = 'Pasiruošk';
+    ctxt.innerHTML = '<ul>' + ing.map(x => `<li>${x}</li>`).join('') + '</ul>';
+  } else {
+    cno.textContent = `Žingsnis ${k} iš ${steps.length}`;
+    ctxt.textContent = steps[k-1];
+  }
+  const m = k > 0 && steps[k-1].match(/(\d+)(?:–(\d+))?\s*min/);
+  if (m){ tLeft = +(m[2]||m[1]) * 60; ctimer.hidden = false; ctimer.textContent = `Laikmatis ${fmt(tLeft)}`; }
+  else ctimer.hidden = true;
+  cprev.style.visibility = k === 0 ? 'hidden' : 'visible';
+  cnext.textContent = k === 0 ? 'Pradėti' : (k === steps.length ? 'Baigta' : 'Toliau');
+}
+ctimer.onclick = () => {
+  if (ctimer.classList.contains('done')){ showStep(); return; }
+  if (tInt){ stopTimer(); ctimer.textContent = `Tęsti ${fmt(tLeft)}`; return; }
+  ctimer.className = 'timer run';
+  tInt = setInterval(() => {
+    tLeft--; ctimer.textContent = fmt(tLeft);
+    if (tLeft <= 0){ clearInterval(tInt); tInt = null; ctimer.className = 'timer done'; ctimer.textContent = 'Laikas baigėsi'; beep(); }
+  }, 1000);
+  ctimer.textContent = fmt(tLeft);
+};
+async function startCook(){
+  steps = pickAll(cur.s, curVeg); ing = pickAll(cur.i, curVeg); k = 0;
+  view.hidden = true; cook.hidden = false; showStep();
+  try{ lock = await navigator.wakeLock.request('screen'); }catch(e){}
+}
+function endCook(){
+  stopTimer(); cook.hidden = true; view.hidden = false;
+  try{ lock && lock.release(); }catch(e){} lock = null;
+}
+document.getElementById('go').onclick = startCook;
+cprev.onclick = () => { if (k > 0){ k--; showStep(); } };
+cnext.onclick = () => { if (k < steps.length){ k++; showStep(); } else { endCook(); d.close(); } };
+d.addEventListener('close', endCook);
 
 render();
 </script>
