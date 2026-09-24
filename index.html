@@ -92,20 +92,37 @@ dialog[open]{animation:up .22s ease-out}
 .sheet li{margin:5px 0}
 .go{display:block; width:100%; font:inherit; font-weight:800; font-size:17px; margin:12px 0 4px;
   background:var(--accent); color:var(--accent-ink); border:0; border-radius:14px; padding:13px; cursor:pointer}
-.cook[hidden],.view[hidden]{display:none}
-.bar{height:5px; background:var(--bg); border-radius:9px; overflow:hidden; margin:4px 0 18px}
-.bar i{display:block; height:100%; background:var(--accent); transition:width .2s}
-.stepno{color:var(--muted); font-weight:600; font-size:15px; margin:0 0 6px}
-.steptxt{font-size:25px; font-weight:600; line-height:1.3; letter-spacing:-.01em; margin:0 0 18px; min-height:5.2em}
-.steptxt ul{font-size:19px; font-weight:400; padding-left:22px; margin:0}
-.timer{font:inherit; font-weight:800; font-size:20px; color:var(--ink); background:var(--bg);
-  border:1.5px solid var(--line); border-radius:14px; padding:12px 18px; cursor:pointer; margin-bottom:18px}
-.timer.run{border-color:var(--accent)}
-.timer.done{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
-.nav{display:grid; grid-template-columns:1fr 2fr; gap:10px}
-.nav button{font:inherit; font-weight:800; font-size:17px; border-radius:14px; padding:14px; cursor:pointer; border:1.5px solid var(--line); background:none; color:var(--ink)}
-.nav button.next{background:var(--ink); color:var(--bg); border-color:var(--ink)}
-.go:focus-visible,.timer:focus-visible,.nav button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+dialog.ck{margin:0; width:100%; max-width:none; height:100%; max-height:none; border-radius:0; background:var(--surface)}
+dialog.ck[open]{display:flex; flex-direction:column; animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0}}
+@media (prefers-reduced-motion: reduce){dialog.ck[open]{animation:none}}
+.ck-in{flex:1; display:flex; flex-direction:column; width:100%; max-width:560px; margin:0 auto; min-height:0;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 22px calc(18px + env(safe-area-inset-bottom,0px))}
+.ck-top{display:flex; align-items:center; gap:12px}
+.ck-title{flex:1; min-width:0; font-weight:600; font-size:15px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.x{flex:none; width:40px; height:40px; border-radius:50%; border:0; background:var(--bg); color:var(--ink); font-size:18px; cursor:pointer; display:grid; place-items:center}
+.segs{display:flex; gap:4px; margin:14px 0 28px}
+.segs i{flex:1; height:4px; border-radius:4px; background:var(--line)}
+.segs i.on{background:var(--accent)}
+.ck-body{flex:1; overflow-y:auto; min-height:0}
+.stepno{color:var(--muted); font-weight:600; font-size:15px; margin:0 0 10px}
+.steptxt{font-size:clamp(24px, 6.4vw, 30px); font-weight:600; line-height:1.3; letter-spacing:-.015em; margin:0}
+.steptxt ul{list-style:none; padding:0; margin:0; font-size:19px; font-weight:400; line-height:1.4}
+.steptxt li{padding:11px 0; border-bottom:1.5px solid var(--line)}
+.timer{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:26px;
+  background:var(--bg); border-radius:18px; padding:14px 14px 14px 18px}
+.timer[hidden]{display:none}
+.timer small{display:block; color:var(--muted); font-size:13.5px; font-weight:600}
+.timer b{font-size:34px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.1}
+.timer button{flex:none; width:56px; height:56px; border-radius:50%; border:0; cursor:pointer;
+  background:var(--ink); color:var(--bg); font-size:20px; display:grid; place-items:center}
+.timer.done{background:var(--accent); color:var(--accent-ink)}
+.timer.done small{color:var(--accent-ink)}
+.nav{display:grid; grid-template-columns:1fr 2fr; gap:10px; padding-top:16px}
+.nav button{font:inherit; font-weight:800; font-size:17px; border-radius:16px; padding:16px; cursor:pointer; border:0; background:var(--bg); color:var(--ink)}
+.nav button.next{background:var(--accent); color:var(--accent-ink)}
+.nav button:disabled{opacity:.35; cursor:default}
+.go:focus-visible,.x:focus-visible,.timer button:focus-visible,.nav button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 </style>
 </head>
 <body>
@@ -133,21 +150,28 @@ dialog[open]{animation:up .22s ease-out}
   <div class="sheet">
     <header><h2 id="dt"></h2><button class="close" aria-label="Uždaryti" onclick="d.close()">✕</button></header>
     <p class="meta" id="dm"></p>
-    <div class="view" id="view">
     <div class="vt" id="vt" role="group" aria-label="Variantas">
       <button data-v="0">Su mėsa</button><button class="veg" data-v="1">Vegetariškai</button>
     </div>
     <button class="go" id="go">Gaminti</button>
     <h3>Reikės</h3><ul id="di"></ul>
     <h3>Gaminimas</h3><ol id="ds"></ol>
-    </div>
-    <div class="cook" id="cook" hidden>
-      <div class="bar"><i id="cbar"></i></div>
+  </div>
+</dialog>
+
+<dialog class="ck" id="ck" aria-labelledby="ctitle">
+  <div class="ck-in">
+    <div class="ck-top"><span class="ck-title" id="ctitle"></span><button class="x" id="cx" aria-label="Uždaryti gaminimą">✕</button></div>
+    <div class="segs" id="csegs"></div>
+    <div class="ck-body">
       <p class="stepno" id="cno"></p>
       <div class="steptxt" id="ctxt"></div>
-      <button class="timer" id="ctimer" hidden></button>
-      <div class="nav"><button id="cprev">Atgal</button><button class="next" id="cnext">Toliau</button></div>
+      <div class="timer" id="ctimer" hidden>
+        <div><small id="clab">Laikmatis</small><b id="ctime"></b></div>
+        <button id="cplay" aria-label="Paleisti laikmatį">▶</button>
+      </div>
     </div>
+    <div class="nav"><button id="cprev">Atgal</button><button class="next" id="cnext">Toliau</button></div>
   </div>
 </dialog>
 
@@ -361,17 +385,16 @@ list.onclick = e => {
   cur = R[el.dataset.i];
   vt.hidden = !hasAlt(cur);
   curVeg = diet === 'veg';
-  endCook(); fill(); d.showModal();
+  fill(); d.showModal();
 };
 d.addEventListener('click', e => { if (e.target === d) d.close(); });
 
 /* ---------- Gaminimo režimas ---------- */
-const view = document.getElementById('view'), cook = document.getElementById('cook');
-const ctimer = document.getElementById('ctimer');
+const ck = document.getElementById('ck'), ctimer = document.getElementById('ctimer');
 let steps = [], ing = [], k = 0, tInt = null, tLeft = 0, lock = null;
 
-function fmt(s){ return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
-function stopTimer(){ clearInterval(tInt); tInt = null; ctimer.className = 'timer'; }
+const fmt = s => Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+function stopTimer(){ clearInterval(tInt); tInt = null; cplay.textContent = '▶'; cplay.setAttribute('aria-label','Paleisti laikmatį'); }
 function beep(){
   try{ navigator.vibrate && navigator.vibrate([300,150,300,150,300]);
     const a = new (window.AudioContext||window.webkitAudioContext)();
@@ -379,9 +402,8 @@ function beep(){
   }catch(e){}
 }
 function showStep(){
-  stopTimer();
-  const total = steps.length + 1;
-  cbar.style.width = ((k+1)/total*100) + '%';
+  stopTimer(); ctimer.classList.remove('done');
+  csegs.innerHTML = Array.from({length: steps.length + 1}, (_, j) => `<i class="${j <= k ? 'on' : ''}"></i>`).join('');
   if (k === 0){
     cno.textContent = 'Pasiruošk';
     ctxt.innerHTML = '<ul>' + ing.map(x => `<li>${x}</li>`).join('') + '</ul>';
@@ -390,34 +412,34 @@ function showStep(){
     ctxt.textContent = steps[k-1];
   }
   const m = k > 0 && steps[k-1].match(/(\d+)(?:–(\d+))?\s*min/);
-  if (m){ tLeft = +(m[2]||m[1]) * 60; ctimer.hidden = false; ctimer.textContent = `Laikmatis ${fmt(tLeft)}`; }
-  else ctimer.hidden = true;
-  cprev.style.visibility = k === 0 ? 'hidden' : 'visible';
+  ctimer.hidden = !m;
+  if (m){ tLeft = +(m[2]||m[1]) * 60; clab.textContent = 'Laikmatis'; ctime.textContent = fmt(tLeft); }
+  cprev.disabled = k === 0;
   cnext.textContent = k === 0 ? 'Pradėti' : (k === steps.length ? 'Baigta' : 'Toliau');
+  document.querySelector('.ck-body').scrollTop = 0;
 }
-ctimer.onclick = () => {
+cplay.onclick = () => {
   if (ctimer.classList.contains('done')){ showStep(); return; }
-  if (tInt){ stopTimer(); ctimer.textContent = `Tęsti ${fmt(tLeft)}`; return; }
-  ctimer.className = 'timer run';
+  if (tInt){ stopTimer(); clab.textContent = 'Pristabdyta'; return; }
+  clab.textContent = 'Liko';
+  cplay.textContent = '❚❚'; cplay.setAttribute('aria-label','Pristabdyti laikmatį');
   tInt = setInterval(() => {
-    tLeft--; ctimer.textContent = fmt(tLeft);
-    if (tLeft <= 0){ clearInterval(tInt); tInt = null; ctimer.className = 'timer done'; ctimer.textContent = 'Laikas baigėsi'; beep(); }
+    tLeft--; ctime.textContent = fmt(tLeft);
+    if (tLeft <= 0){ clearInterval(tInt); tInt = null; ctimer.classList.add('done'); clab.textContent = 'Laikas baigėsi'; cplay.textContent = '↺'; beep(); }
   }, 1000);
-  ctimer.textContent = fmt(tLeft);
 };
 async function startCook(){
   steps = pickAll(cur.s, curVeg); ing = pickAll(cur.i, curVeg); k = 0;
-  view.hidden = true; cook.hidden = false; showStep();
+  ctitle.textContent = pick(cur.n, curVeg);
+  showStep(); ck.showModal();
   try{ lock = await navigator.wakeLock.request('screen'); }catch(e){}
 }
-function endCook(){
-  stopTimer(); cook.hidden = true; view.hidden = false;
-  try{ lock && lock.release(); }catch(e){} lock = null;
-}
+function endCook(){ stopTimer(); try{ lock && lock.release(); }catch(e){} lock = null; }
 document.getElementById('go').onclick = startCook;
+cx.onclick = () => ck.close();
+ck.addEventListener('close', endCook);
 cprev.onclick = () => { if (k > 0){ k--; showStep(); } };
-cnext.onclick = () => { if (k < steps.length){ k++; showStep(); } else { endCook(); d.close(); } };
-d.addEventListener('close', endCook);
+cnext.onclick = () => { if (k < steps.length){ k++; showStep(); } else { ck.close(); d.close(); } };
 
 render();
 </script>
