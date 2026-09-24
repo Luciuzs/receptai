@@ -104,6 +104,7 @@ dialog.ck[open]{display:flex; flex-direction:column; animation:fade .18s ease-ou
 .segs{display:flex; gap:4px; margin:14px 0 28px}
 .segs i{flex:1; height:4px; border-radius:4px; background:var(--line)}
 .segs i.on{background:var(--accent)}
+.steps{flex:1; display:flex; flex-direction:column; min-height:0}
 .ck-body{flex:1; overflow-y:auto; min-height:0}
 .stepno{color:var(--muted); font-weight:600; font-size:15px; margin:0 0 10px}
 .steptxt{font-size:clamp(24px, 6.4vw, 30px); font-weight:600; line-height:1.3; letter-spacing:-.015em; margin:0}
@@ -123,6 +124,33 @@ dialog.ck[open]{display:flex; flex-direction:column; animation:fade .18s ease-ou
 .nav button.next{background:var(--accent); color:var(--accent-ink)}
 .nav button:disabled{opacity:.35; cursor:default}
 .go:focus-visible,.x:focus-visible,.timer button:focus-visible,.nav button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.tag.r{border-color:var(--accent); color:var(--ink)}
+.rv-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:22px 0 4px}
+.rv-head h3{margin:0}
+.rv-head .avg{color:var(--muted); font-weight:600; font-size:15px; margin-left:6px}
+.rate-btn{font:inherit; font-weight:700; font-size:15px; color:var(--ink); background:var(--bg); border:0; border-radius:999px; padding:8px 14px; cursor:pointer}
+.rv{list-style:none; padding:0 !important; margin:0}
+.rv li{display:flex; gap:12px; padding:12px 0; border-bottom:1.5px solid var(--line); margin:0 !important}
+.rv li:last-child{border-bottom:0}
+.rv img{flex:none; width:64px; height:64px; border-radius:12px; object-fit:cover; background:var(--bg)}
+.rv .st{color:var(--accent); letter-spacing:1px}
+.rv .who{color:var(--muted); font-size:14px}
+.rv p{margin:2px 0 0; font-size:15.5px}
+.rv-empty{color:var(--muted); font-size:15.5px; margin:4px 0 0}
+.rate[hidden],.steps[hidden]{display:none}
+.rate{flex:1; display:flex; flex-direction:column; min-height:0}
+.rate h2{font-size:clamp(28px, 8vw, 36px); font-weight:800; letter-spacing:-.03em; line-height:1; margin:28px 0 22px}
+.stars{display:flex; gap:6px; margin-bottom:22px}
+.stars button{all:unset; cursor:pointer; font-size:44px; line-height:1; color:var(--line); padding:2px}
+.stars button.on{color:var(--accent)}
+.field{display:block; width:100%; font:inherit; font-size:17px; color:var(--ink); background:var(--bg); border:1.5px solid transparent; border-radius:14px; padding:12px 14px; margin-bottom:10px}
+.field:focus{outline:none; border-color:var(--accent)}
+textarea.field{resize:none; height:92px}
+.photo{display:flex; align-items:center; gap:12px; font-weight:700; font-size:16px; cursor:pointer; background:var(--bg); border-radius:14px; padding:10px 14px; min-height:64px}
+.photo img{width:48px; height:48px; border-radius:10px; object-fit:cover}
+.photo input{position:absolute; width:1px; height:1px; opacity:0}
+.rate .err{color:#C0392B; font-size:15px; min-height:1.4em; margin:8px 0 0}
+.stars button:focus-visible,.rate-btn:focus-visible,.photo:focus-within{outline:3px solid var(--accent); outline-offset:2px}
 </style>
 </head>
 <body>
@@ -156,12 +184,15 @@ dialog.ck[open]{display:flex; flex-direction:column; animation:fade .18s ease-ou
     <button class="go" id="go">Gaminti</button>
     <h3>Reikės</h3><ul id="di"></ul>
     <h3>Gaminimas</h3><ol id="ds"></ol>
+    <div class="rv-head"><h3>Atsiliepimai<span class="avg" id="ravg"></span></h3><button class="rate-btn" id="rbtn">Įvertinti</button></div>
+    <ul class="rv" id="rlist"></ul>
   </div>
 </dialog>
 
 <dialog class="ck" id="ck" aria-labelledby="ctitle">
   <div class="ck-in">
     <div class="ck-top"><span class="ck-title" id="ctitle"></span><button class="x" id="cx" aria-label="Uždaryti gaminimą">✕</button></div>
+    <div class="steps" id="csteps">
     <div class="segs" id="csegs"></div>
     <div class="ck-body">
       <p class="stepno" id="cno"></p>
@@ -172,6 +203,18 @@ dialog.ck[open]{display:flex; flex-direction:column; animation:fade .18s ease-ou
       </div>
     </div>
     <div class="nav"><button id="cprev">Atgal</button><button class="next" id="cnext">Toliau</button></div>
+    </div>
+    <div class="rate" id="crate" hidden>
+      <div class="ck-body">
+        <h2>Kaip pavyko?</h2>
+        <div class="stars" id="rstars" role="radiogroup" aria-label="Įvertinimas"></div>
+        <input class="field" id="rname" placeholder="Tavo vardas" autocomplete="given-name">
+        <textarea class="field" id="rtext" placeholder="Komentaras (nebūtina)"></textarea>
+        <label class="photo"><input type="file" id="rfile" accept="image/*"><span id="rprev"></span><span id="rphl">Pridėti nuotrauką</span></label>
+        <p class="err" id="rerr"></p>
+      </div>
+      <div class="nav"><button id="rskip">Praleisti</button><button class="next" id="rsave">Išsaugoti</button></div>
+    </div>
   </div>
 </dialog>
 
@@ -362,6 +405,7 @@ function render(){
   if (!rows.length){ list.innerHTML = '<li class="empty">Pagal šiuos filtrus receptų nėra. Pabandyk ilgesnį laiką ar kitą kategoriją.</li>'; return; }
   list.innerHTML = rows.map(({r, idx}) => {
     const tags = (r.veg ? '<span class="tag v">veg.</span>' : (hasAlt(r) && !veg ? '<span class="tag v">+ veg.</span>' : ''))
+      + ((REV[slug(r)]||[]).length ? `<span class="tag r">★ ${nf(avg(slug(r)))}</span>` : '')
       + (r.w === 'jai' ? '<span class="tag">jai</span>' : r.w === 'man' ? '<span class="tag">man</span>' : '');
     return `<li><button class="item" data-i="${idx}"><b>${pick(r.n, veg)}</b><small>${tags}${pickAll(r.i, veg).slice(0,3).map(x => x.split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
   }).join('');
@@ -375,6 +419,7 @@ function fill(){
   di.innerHTML = pickAll(r.i, curVeg).map(x => `<li>${x}</li>`).join('');
   ds.innerHTML = pickAll(r.s, curVeg).map(x => `<li>${x}</li>`).join('');
   vt.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', (b.dataset.v === '1') === curVeg));
+  showReviews();
 }
 vt.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -431,6 +476,7 @@ cplay.onclick = () => {
 async function startCook(){
   steps = pickAll(cur.s, curVeg); ing = pickAll(cur.i, curVeg); k = 0;
   ctitle.textContent = pick(cur.n, curVeg);
+  csteps.hidden = false; crate.hidden = true;
   showStep(); ck.showModal();
   try{ lock = await navigator.wakeLock.request('screen'); }catch(e){}
 }
@@ -439,9 +485,86 @@ document.getElementById('go').onclick = startCook;
 cx.onclick = () => ck.close();
 ck.addEventListener('close', endCook);
 cprev.onclick = () => { if (k > 0){ k--; showStep(); } };
-cnext.onclick = () => { if (k < steps.length){ k++; showStep(); } else { ck.close(); d.close(); } };
+cnext.onclick = () => { if (k < steps.length){ k++; showStep(); } else { stopTimer(); openRate(); } };
+
+/* ---------- Atsiliepimai (Supabase) ---------- */
+const SB = 'https://zhkckwxocezfymbyzlwl.supabase.co', SK = 'sb_publishable_mXjVWwPrUdaQMs04TBi5lA_JuXgW_Pt';
+const slug = r => pick(r.n, false).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+let REV = {};
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const avg = id => { const a = REV[id] || []; return a.length ? a.reduce((s,x) => s + x.rating, 0) / a.length : 0; };
+const nf = n => n.toFixed(1).replace('.', ',');
+
+async function loadReviews(){
+  try{
+    const r = await fetch(SB + '/rest/v1/reviews?select=*&order=created_at.desc', {headers:{apikey:SK}});
+    if (!r.ok) return;
+    REV = {}; (await r.json()).forEach(x => (REV[x.recipe] ||= []).push(x));
+    render(); if (d.open) showReviews();
+  }catch(e){}
+}
+function showReviews(){
+  const a = REV[slug(cur)] || [];
+  ravg.textContent = a.length ? `★ ${nf(avg(slug(cur)))} (${a.length})` : '';
+  rlist.innerHTML = a.length ? a.map(x => `<li>${x.photo ? `<a href="${esc(x.photo)}" target="_blank" rel="noopener"><img src="${esc(x.photo)}" alt="Nuotrauka" loading="lazy"></a>` : ''}<div><span class="st">${'★'.repeat(x.rating)}</span> <span class="who">${esc(x.name || '')}${x.veg && hasAlt(cur) ? ', vegetariškai' : ''}, ${new Date(x.created_at).toLocaleDateString('lt-LT')}</span>${x.comment ? `<p>${esc(x.comment)}</p>` : ''}</div></li>`).join('')
+    : '<li class="rv-empty" style="border:0">Dar nevertinta. Pagaminus, įvertinkit.</li>';
+}
+
+let stars = 0, photoBlob = null;
+rstars.innerHTML = [1,2,3,4,5].map(n => `<button role="radio" aria-checked="false" aria-label="${n} iš 5" data-n="${n}">★</button>`).join('');
+function setStars(n){ stars = n; rstars.querySelectorAll('button').forEach(b => { b.classList.toggle('on', +b.dataset.n <= n); b.setAttribute('aria-checked', +b.dataset.n === n); }); }
+rstars.onclick = e => { const b = e.target.closest('button'); if (b) setStars(+b.dataset.n); };
+
+function shrink(file){
+  return new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => {
+      const s = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? res(b) : rej(), 'image/jpeg', .82);
+    }; img.onerror = rej; img.src = URL.createObjectURL(file);
+  });
+}
+rfile.onchange = async () => {
+  const f = rfile.files[0]; if (!f) return;
+  try{ photoBlob = await shrink(f); rprev.innerHTML = `<img src="${URL.createObjectURL(photoBlob)}" alt="">`; rphl.textContent = 'Pakeisti nuotrauką'; }
+  catch(e){ rerr.textContent = 'Nepavyko nuskaityti nuotraukos.'; }
+};
+
+function openRate(){
+  csteps.hidden = true; crate.hidden = false;
+  setStars(0); rtext.value = ''; rfile.value = ''; photoBlob = null; rprev.innerHTML = ''; rphl.textContent = 'Pridėti nuotrauką'; rerr.textContent = '';
+  try{ rname.value = localStorage.getItem('vardas') || ''; }catch(e){}
+  rsave.disabled = false; rsave.textContent = 'Išsaugoti';
+}
+rbtn.onclick = () => { ctitle.textContent = pick(cur.n, curVeg); openRate(); ck.showModal(); };
+rskip.onclick = () => ck.close();
+rsave.onclick = async () => {
+  if (!stars){ rerr.textContent = 'Pasirink žvaigždučių skaičių.'; return; }
+  rerr.textContent = ''; rsave.disabled = true; rsave.textContent = 'Saugoma…';
+  try{
+    localStorage.setItem('vardas', rname.value.trim());
+  }catch(e){}
+  try{
+    let photo = null;
+    if (photoBlob){
+      const path = `${slug(cur)}/${Date.now()}.jpg`;
+      const up = await fetch(`${SB}/storage/v1/object/photos/${path}`, {method:'POST', headers:{apikey:SK, 'content-type':'image/jpeg'}, body:photoBlob});
+      if (!up.ok) throw 0;
+      photo = `${SB}/storage/v1/object/public/photos/${path}`;
+    }
+    const r = await fetch(SB + '/rest/v1/reviews', {method:'POST', headers:{apikey:SK, 'content-type':'application/json'},
+      body: JSON.stringify({recipe: slug(cur), veg: !!(curVeg && hasAlt(cur)) || !!cur.veg, rating: stars, name: rname.value.trim() || null, comment: rtext.value.trim() || null, photo})});
+    if (!r.ok) throw 0;
+    ck.close(); await loadReviews();
+  }catch(e){
+    rerr.textContent = 'Nepavyko išsaugoti. Patikrink internetą ir bandyk dar kartą.';
+    rsave.disabled = false; rsave.textContent = 'Išsaugoti';
+  }
+};
 
 render();
+loadReviews();
 </script>
 </body>
 </html>
