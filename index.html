@@ -79,7 +79,13 @@ dialog[open]{animation:up .22s ease-out}
 .sheet h2{font-size:28px; font-weight:800; letter-spacing:-.02em; line-height:1.05; margin:0}
 .sheet .meta{color:var(--muted); margin:6px 0 14px}
 .close{all:unset; cursor:pointer; font-size:26px; line-height:1; padding:4px 8px; border-radius:10px}
-.vt{display:inline-grid; grid-template-columns:1fr 1fr; background:var(--bg); border-radius:12px; padding:3px; margin-bottom:6px}
+.vt{display:inline-grid; grid-template-columns:1fr 1fr; background:var(--bg); border-radius:12px; padding:3px}
+.opts{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px}
+.stepper{display:flex; align-items:center; background:var(--bg); border-radius:12px; padding:3px}
+.stepper button{width:36px; height:34px; border:0; border-radius:9px; background:var(--surface); color:var(--ink); font:inherit; font-size:20px; font-weight:600; cursor:pointer; box-shadow:0 1px 0 var(--line)}
+.stepper button:disabled{opacity:.35; cursor:default}
+.stepper b{min-width:92px; text-align:center; font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+.stepper button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 .vt[hidden]{display:none}
 .vt button{font:inherit; font-size:14.5px; font-weight:600; color:var(--muted); background:none; border:0; border-radius:9px; padding:7px 14px; cursor:pointer}
 .vt button[aria-pressed="true"]{background:var(--surface); color:var(--ink); box-shadow:0 1px 0 var(--line)}
@@ -257,8 +263,11 @@ body.searching #haveBtn,body.searching #time,body.searching .chips .sep,body.sea
   <div class="sheet">
     <header><h2 id="dt"></h2><button class="close" aria-label="Uždaryti" onclick="d.close()">✕</button></header>
     <p class="meta" id="dm"></p>
+    <div class="opts">
+    <div class="stepper" role="group" aria-label="Kiekis"><button id="svMinus" aria-label="Mažiau">−</button><b id="svN" aria-live="polite"></b><button id="svPlus" aria-label="Daugiau">+</button></div>
     <div class="vt" id="vt" role="group" aria-label="Variantas">
       <button data-v="0">Su mėsa</button><button class="veg" data-v="1">Vegetariškai</button>
+    </div>
     </div>
     <button class="go" id="go">Gaminti</button>
     <div class="rv-head"><h3>Reikės</h3><button class="rate-btn" id="toShop">+ Į pirkinius</button></div>
@@ -323,339 +332,365 @@ body.searching #haveBtn,body.searching #time,body.searching .chips .sep,body.sea
 
 <script>
 // V(mėsiškas, vegetariškas) – null reiškia „praleisti“; S(tekstas, laikmatis min, patarimas)
+// {500 g} – kiekis, kuris keičiasi pagal porcijas; {2|vienaskaita|2–9|10+|trupmena} – skaičius su linksniuojamu žodžiu
 const V = (m, v) => ({m, v});
 const S = (t, tm, h) => ({t, tm, h});
 const CATS = ["Pusryčiai","Sriubos","Pagrindiniai","Picos","Užkandžiai","Saldūs"];
+const PICA = ["pica","picos","picų"], SUM = ["sumuštinis","sumuštiniai","sumuštinių"];
 
 const R = [
 /* ---------- Pusryčiai ---------- */
-{n:"Svogūnainis", t:10, c:0, w:"jai", veg:1,
- i:["3 batono riekės","2–3 v. š. tepamo sūrelio","1 prinokęs avokadas","½ raudonojo svogūno","1 pomidoras","Druska, česnako ir citrinos prieskoniai"],
- s:[S("Raudonąjį svogūną supjaustyk labai smulkiais kubeliais.",0,"Jei nori švelnesnio skonio, 5 min palaikyk jį šaltame vandenyje ir nusausink."),
-    S("Pomidorą perpjauk, šaukšteliu išimk sėklas ir supjaustyk mažais kubeliais.",0,"Be sėklų masė nebus vandeninga."),
-    "Avokadą perpjauk, išimk kauliuką, minkštimą supjaustyk kubeliais ir sudėk į dubenėlį su svogūnu ir pomidoru. Pagardink druska, česnako ir citrinos prieskoniais, švelniai išmaišyk.",
-    S("Batoną paskrudink skrudintuve arba sausoje keptuvėje ant vidutinės ugnies, kol taps auksinis ir traškus.",3,"Keptuvėje apversk įpusėjus."),
-    "Karštas riekes storai patepk sūreliu, ant viršaus sukrauk avokado masę ir valgyk iškart."]},
-{n:"Paturbintas avokado tostas", t:15, c:0, w:"jai", veg:1,
- i:["3 batono riekės","2–3 v. š. tepamo sūrelio","1 prinokęs avokadas","2 kiaušiniai","Sauja žirnių daigelių (Lidl)","Druska, česnako ir citrinos prieskoniai"],
- s:[S("Užvirink vandenį, šaukštu atsargiai įdėk kiaušinius ir virk ant vidutinės ugnies.",9,"7 min – trynys dar minkštas, 9 min – kietas, bet ryškus."),
+{n:"Svogūnainis", t:10, c:0, w:"jai", veg:1, p:1,
+ i:["{3|batono riekė|batono riekės|batono riekių}","{2–3 v. š.} tepamo sūrelio","{1|prinokęs avokadas|prinokę avokadai|prinokusių avokadų|prinokusio avokado}","{½|raudonasis svogūnas|raudonieji svogūnai|raudonųjų svogūnų|raudonojo svogūno}","{1|pomidoras|pomidorai|pomidorų|pomidoro}","Druska, česnako ir citrinos prieskoniai"],
+ s:[S("{½|raudonąjį svogūną|raudonuosius svogūnus|raudonųjų svogūnų|raudonojo svogūno} supjaustyk labai smulkiais kubeliais.",0,"Jei nori švelnesnio skonio, 5 min palaikyk svogūną šaltame vandenyje ir nusausink."),
+    S("{1|pomidorą|pomidorus|pomidorų|pomidoro} perpjauk, šaukšteliu išimk sėklas ir supjaustyk mažais kubeliais.",0,"Be sėklų masė nebus vandeninga."),
+    "{1|avokadą|avokadus|avokadų|avokado} perpjauk, išimk kauliuką, minkštimą supjaustyk kubeliais ir sudėk į dubenėlį su svogūnu ir pomidoru. Pagardink žiupsneliu druskos, česnako ir citrinos prieskonių, švelniai išmaišyk.",
+    S("{3|batono riekę|batono riekes|batono riekių} paskrudink skrudintuve arba sausoje keptuvėje ant vidutinės ugnies, kol taps auksinės ir traškios.",3,"Keptuvėje apversk įpusėjus."),
+    "Karštas riekes patepk {2–3 v. š.} sūrelio, ant viršaus sukrauk avokado masę ir valgyk iškart."]},
+{n:"Paturbintas avokado tostas", t:15, c:0, w:"jai", veg:1, p:1,
+ i:["{3|batono riekė|batono riekės|batono riekių}","{2–3 v. š.} tepamo sūrelio","{1|prinokęs avokadas|prinokę avokadai|prinokusių avokadų|prinokusio avokado}","{2|kiaušinis|kiaušiniai|kiaušinių}","{1|sauja|saujos|saujų|saujos} žirnių daigelių (Lidl)","Druska, česnako ir citrinos prieskoniai"],
+ s:[S("Užvirink vandenį, šaukštu atsargiai įdėk {2|kiaušinį|kiaušinius|kiaušinių} ir virk ant vidutinės ugnies.",9,"7 min – trynys dar minkštas, 9 min – kietas, bet ryškus."),
     "Išvirtus kiaušinius iškart perkelk į šaltą vandenį, kad lengviau nusiluptų.",
-    "Avokadą perpjauk, išskobk į dubenėlį ir sutrink šakute. Įberk druskos, česnako ir citrinos prieskonių, paragauk.",
-    S("Paskrudink batono riekes, kol taps auksinės.",3),
-    "Karštas riekes patepk sūreliu, ant viršaus užtepk avokado masės.",
-    "Kiaušinius nulupk, supjaustyk griežinėliais, sudėk ant tostų ir užberk žirnių daigelių."]},
-{n:"Paprastas avokado tostas", t:8, c:0, w:"jai", veg:1,
- i:["3 batono riekės","2–3 v. š. tepamo sūrelio","1 prinokęs avokadas","Druska, česnako ir citrinos prieskoniai"],
- s:["Avokadą perpjauk, išimk kauliuką ir šaukštu išskobk minkštimą į dubenėlį.",
-    "Sutrink šakute, palik šiek tiek gabaliukų. Įberk druskos, česnako ir citrinos prieskonių, išmaišyk ir paragauk.",
-    S("Paskrudink batono riekes skrudintuve arba keptuvėje.",3),
-    "Karštas riekes patepk sūreliu, ant viršaus užtepk avokado masės."]},
-{n:"Lavašas su kiaušiniais ir avokadu", t:15, c:0, w:"jai", veg:1,
- i:["1 lavašas","2 kiaušiniai","½ raudonosios paprikos","1 pomidoras","½ avokado","1 v. š. sviesto arba aliejaus","Druska, pipirai"],
- s:["Papriką supjaustyk plonomis juostelėmis, pomidorą – kubeliais, avokadą – griežinėliais.",
-    S("Keptuvėje ant vidutinės ugnies įkaitink sviestą ar aliejų ir pakepink papriką, kol suminkštės.",3),
-    S("Įmušk kiaušinius, pasūdyk, pabarstyk pipirais ir mentele lėtai maišyk, kol sustings, bet liks drėgni. Pabaigoje įmaišyk pomidorą.",2),
+    "{1|avokadą|avokadus|avokadų|avokado} perpjauk, išskobk į dubenėlį ir sutrink šakute. Įberk žiupsnelį druskos, česnako ir citrinos prieskonių, paragauk.",
+    S("Paskrudink {3|batono riekę|batono riekes|batono riekių}, kol taps auksinės.",3),
+    "Karštas riekes patepk {2–3 v. š.} sūrelio, ant viršaus užtepk avokado masės.",
+    "Kiaušinius nulupk, supjaustyk griežinėliais, sudėk ant tostų ir užberk {1|saują|saujas|saujų|saujos} žirnių daigelių."]},
+{n:"Paprastas avokado tostas", t:8, c:0, w:"jai", veg:1, p:1,
+ i:["{3|batono riekė|batono riekės|batono riekių}","{2–3 v. š.} tepamo sūrelio","{1|prinokęs avokadas|prinokę avokadai|prinokusių avokadų|prinokusio avokado}","Druska, česnako ir citrinos prieskoniai"],
+ s:["{1|avokadą|avokadus|avokadų|avokado} perpjauk, išimk kauliuką ir šaukštu išskobk minkštimą į dubenėlį.",
+    "Sutrink šakute, palik šiek tiek gabaliukų. Įberk žiupsnelį druskos, česnako ir citrinos prieskonių, išmaišyk ir paragauk.",
+    S("Paskrudink {3|batono riekę|batono riekes|batono riekių} skrudintuve arba keptuvėje.",3),
+    "Karštas riekes patepk {2–3 v. š.} sūrelio, ant viršaus užtepk avokado masės."]},
+{n:"Lavašas su kiaušiniais ir avokadu", t:15, c:0, w:"jai", veg:1, p:1,
+ i:["{1|lavašas|lavašai|lavašų|lavašo}","{2|kiaušinis|kiaušiniai|kiaušinių}","{½|raudonoji paprika|raudonosios paprikos|raudonųjų paprikų|raudonosios paprikos}","{1|pomidoras|pomidorai|pomidorų|pomidoro}","{½|avokadas|avokadai|avokadų|avokado}","{1 v. š.} sviesto arba aliejaus","Druska, pipirai"],
+ s:["{½|papriką|paprikas|paprikų|paprikos} supjaustyk plonomis juostelėmis, {1|pomidorą|pomidorus|pomidorų|pomidoro} – kubeliais, {½|avokadą|avokadus|avokadų|avokado} – griežinėliais.",
+    S("Keptuvėje ant vidutinės ugnies įkaitink {1 v. š.} sviesto ar aliejaus ir pakepink papriką, kol suminkštės.",3),
+    S("Įmušk {2|kiaušinį|kiaušinius|kiaušinių}, pasūdyk, pabarstyk pipirais ir mentele lėtai maišyk, kol sustings, bet liks drėgni. Pabaigoje įmaišyk pomidorą.",2),
     S("Lavašą trumpai pašildyk sausoje keptuvėje, kad lengviau susisuktų.",0,"Užtenka 20–30 s."),
     "Masę dėk ant lavašo vidurio, ant viršaus – avokadas. Užlenk šonus ir susuk."]},
-{n:"Penkių grūdų košė", t:10, c:0, w:"jai", veg:1,
- i:["50 g penkių grūdų dribsnių","250 ml vandens arba pieno","Žiupsnelis druskos","1 v. š. grietinės","Uogienė"],
- s:["Puode užvirink vandenį arba pieną su žiupsneliu druskos.",
-    S("Suberk dribsnius, sumažink ugnį ir virk maišydama, kol sutirštės.",6,"Piene košė lengvai prisvyla – maišyk dažniau."),
+{n:"Penkių grūdų košė", t:10, c:0, w:"jai", veg:1, p:1,
+ i:["{50 g} penkių grūdų dribsnių","{250 ml} vandens arba pieno","Žiupsnelis druskos","{1 v. š.} grietinės","Uogienė"],
+ s:["Puode užvirink {250 ml} vandens arba pieno su žiupsneliu druskos.",
+    S("Suberk {50 g} dribsnių, sumažink ugnį ir virk maišydama, kol sutirštės.",6,"Piene košė lengvai prisvyla – maišyk dažniau."),
     S("Nukelk nuo ugnies, uždenk ir leisk pastovėti, kad dribsniai išbrinktų.",2),
-    "Sudėk į dubenėlį, ant viršaus – šaukštas grietinės ir uogienės."]},
-{n:"Granola su jogurtu", t:5, c:0, w:"abu", veg:1,
- i:["200 g natūralaus jogurto","4 v. š. granolos","Sauja uogų arba ½ banano (nebūtina)","Medus (nebūtina)"],
- s:["Į dubenėlį arba stiklinę įdėk jogurto.",
+    "Sudėk į dubenėlį, ant viršaus – {1 v. š.} grietinės ir uogienės."]},
+{n:"Granola su jogurtu", t:5, c:0, w:"abu", veg:1, p:1,
+ i:["{200 g} natūralaus jogurto","{4 v. š.} granolos","{1|sauja|saujos|saujų|saujos} uogų arba {½|bananas|bananai|bananų|banano} (nebūtina)","Medus (nebūtina)"],
+ s:["Į dubenėlį arba stiklinę įdėk {200 g} jogurto.",
     "Ant viršaus sudėk uogų ar banano griežinėlių.",
-    S("Granolą užberk paskutinę, prieš pat valgant. Jei nori saldžiau, užpilk medaus.",0,"Taip granola liks traški.")]},
-{n:"Virti kiaušiniai su batonu", t:12, c:0, w:"abu", veg:1,
- i:["2–4 kiaušiniai","Batono riekės","Majonezas","Druska, pipirai"],
- s:["Užvirink vandenį ir šaukštu atsargiai sudėk kiaušinius.",
+    S("{4 v. š.} granolos užberk paskutinę, prieš pat valgant. Jei nori saldžiau, užpilk medaus.",0,"Taip granola liks traški.")]},
+{n:"Virti kiaušiniai su batonu", t:12, c:0, w:"abu", veg:1, p:2,
+ i:["{4|kiaušinis|kiaušiniai|kiaušinių}","{4|batono riekė|batono riekės|batono riekių}","Majonezas","Druska, pipirai"],
+ s:["Užvirink vandenį ir šaukštu atsargiai sudėk {4|kiaušinį|kiaušinius|kiaušinių}.",
     S("Virk ant vidutinės ugnies, kad vanduo tik švelniai burbuliuotų.",9,"7 min – trynys minkštokas, 10 min – visiškai kietas."),
     S("Perkelk kiaušinius į šaltą vandenį, kad atvėstų.",2),
-    S("Kol vėsta, paskrudink batoną.",3),
+    S("Kol vėsta, paskrudink {4|batono riekę|batono riekes|batono riekių}.",3),
     "Kiaušinius nulupk, perpjauk, pasūdyk, pabarstyk pipirais ir valgyk su batonu ir majonezu."]},
-{n:"Kiaušinienė su pomidorais", t:10, c:0, w:"abu", veg:1,
- i:["3 kiaušiniai","1 pomidoras","½ svogūno","1 v. š. sviesto arba aliejaus","Druska, pipirai"],
- s:["Svogūną supjaustyk plonais pusžiedžiais, pomidorą – skiltelėmis.",
-    S("Keptuvėje ant vidutinės ugnies ištirpink sviestą ir kepk svogūną, kol suminkštės ir taps skaidrus.",3),
+{n:"Kiaušinienė su pomidorais", t:10, c:0, w:"abu", veg:1, p:1,
+ i:["{3|kiaušinis|kiaušiniai|kiaušinių}","{1|pomidoras|pomidorai|pomidorų|pomidoro}","{½|svogūnas|svogūnai|svogūnų|svogūno}","{1 v. š.} sviesto arba aliejaus","Druska, pipirai"],
+ s:["{½|svogūną|svogūnus|svogūnų|svogūno} supjaustyk plonais pusžiedžiais, {1|pomidorą|pomidorus|pomidorų|pomidoro} – skiltelėmis.",
+    S("Keptuvėje ant vidutinės ugnies ištirpink {1 v. š.} sviesto ir kepk svogūną, kol suminkštės ir taps skaidrus.",3),
     S("Sudėk pomidorą ir pakepink, kad šiek tiek suminkštėtų.",1),
-    S("Įmušk kiaušinius, pasūdyk ir pabarstyk pipirais. Kepk be dangčio, kol baltymas sustings.",3,"Norint kietesnio trynio – uždenk dangčiu.")]},
-{n:V("Omletas su sūriu ir kumpiu","Omletas su sūriu ir daržovėmis"), t:10, c:0, w:"abu",
- i:["3 kiaušiniai","3 v. š. pieno","40 g tarkuoto sūrio",V("2 griežinėliai kumpio","½ paprikos arba sauja špinatų"),"1 a. š. sviesto","Druska"],
- s:[V("Kumpį supjaustyk juostelėmis, sūrį sutarkuok.",S("Papriką supjaustyk smulkiai ir pakepink keptuvėje, tada išimk. Sūrį sutarkuok.",2)),
-    "Dubenyje šakute išplak kiaušinius su pienu ir žiupsneliu druskos, kol neliks baltymo gabalų.",
-    S("Keptuvėje ant vidutinės ugnies ištirpink sviestą ir supilk masę. Nemaišyk – tik pakreipk keptuvę, kad pasiskirstytų tolygiai.",2,"Jei apačia paruduoja greičiau nei per minutę – ugnis per stipri."),
+    S("Įmušk {3|kiaušinį|kiaušinius|kiaušinių}, pasūdyk ir pabarstyk pipirais. Kepk be dangčio, kol baltymas sustings.",3,"Norint kietesnio trynio – uždenk dangčiu.")]},
+{n:V("Omletas su sūriu ir kumpiu","Omletas su sūriu ir daržovėmis"), t:10, c:0, w:"abu", p:1,
+ i:["{3|kiaušinis|kiaušiniai|kiaušinių}","{3 v. š.} pieno","{40 g} tarkuoto sūrio",V("{2|griežinėlis kumpio|griežinėliai kumpio|griežinėlių kumpio}","{½|paprika|paprikos|paprikų|paprikos} arba {1|sauja|saujos|saujų|saujos} špinatų"),"{1 a. š.} sviesto","Druska"],
+ s:[V("{2|griežinėlį kumpio|griežinėlius kumpio|griežinėlių kumpio} supjaustyk juostelėmis, sutarkuok {40 g} sūrio.",S("{½|papriką|paprikas|paprikų|paprikos} supjaustyk smulkiai, pakepink keptuvėje ir išimk. Sutarkuok {40 g} sūrio.",2)),
+    "Dubenyje šakute išplak {3|kiaušinį|kiaušinius|kiaušinių} su {3 v. š.} pieno ir žiupsneliu druskos, kol neliks baltymo gabalų.",
+    S("Keptuvėje ant vidutinės ugnies ištirpink {1 a. š.} sviesto ir supilk masę. Nemaišyk – tik pakreipk keptuvę, kad pasiskirstytų tolygiai.",2,"Jei apačia paruduoja greičiau nei per minutę – ugnis per stipri."),
     V("Kai kraštai sustings, o viršus dar drėgnas, ant vienos pusės užberk sūrio ir kumpio.","Kai kraštai sustings, o viršus dar drėgnas, ant vienos pusės užberk sūrio ir daržovių."),
     S("Mentele perlenk per pusę, uždenk dangčiu ir kepk, kol sūris išsilydys.",1)]},
-{n:"Varškė su grietine ir krapais", t:5, c:0, w:"abu", veg:1,
- i:["250 g varškės","3 v. š. grietinės","Krapai arba svogūnų laiškai","Druska","Duona"],
- s:["Varškę sudėk į dubenį ir sutrink šakute, kad neliktų didelių gumulų.",
-    S("Įdėk grietinės ir maišyk, kol masė taps kreminė.",0,"Jei per tiršta – dar šaukštas grietinės."),
-    "Smulkiai sukapok krapus ar laiškus, įmaišyk ir pasūdyk pagal skonį.",
+{n:"Varškė su grietine ir krapais", t:5, c:0, w:"abu", veg:1, p:2,
+ i:["{250 g} varškės","{3 v. š.} grietinės","{1|sauja|saujos|saujų|saujos} krapų arba svogūnų laiškų","Druska","Duona"],
+ s:["{250 g} varškės sudėk į dubenį ir sutrink šakute, kad neliktų didelių gumulų.",
+    S("Įdėk {3 v. š.} grietinės ir maišyk, kol masė taps kreminė.",0,"Jei per tiršta – dar šaukštas grietinės."),
+    "Smulkiai sukapok {1|saują|saujas|saujų|saujos} krapų ar laiškų, įmaišyk ir pasūdyk pagal skonį.",
     "Valgyk su duona arba virtomis bulvėmis."]},
-{n:"Šakšuka su feta", t:25, c:0, w:"abu", veg:1,
- i:["4 kiaušiniai","1 skardinė pjaustytų pomidorų","1 svogūnas","1 paprika","2 skiltelės česnako","1 a. š. paprikos prieskonių","80 g fetos","2 v. š. aliejaus","Druska, pipirai","Duona"],
- s:["Svogūną supjaustyk smulkiai, papriką – juostelėmis, česnaką susmulkink.",
-    S("Didelėje keptuvėje su aliejumi ant vidutinės ugnies kepk svogūną ir papriką, kol suminkštės.",5),
-    S("Įmaišyk česnaką ir paprikos prieskonius, pakepink, kol pasklis kvapas.",1),
-    S("Supilk pomidorus, pasūdyk ir troškink be dangčio, kol padažas sutirštės.",8,"Padažas turi būti tirštas – kitaip kiaušiniai išsilies."),
-    S("Šaukštu padaryk 4 duobutes ir į kiekvieną įmušk kiaušinį. Uždenk dangčiu ir kepk ant silpnos ugnies, kol baltymai sustings, o tryniai liks minkšti.",6),
-    "Užtrupink fetos, pabarstyk pipirais ir valgyk tiesiai iš keptuvės su duona."]},
+{n:"Šakšuka su feta", t:25, c:0, w:"abu", veg:1, p:2,
+ i:["{4|kiaušinis|kiaušiniai|kiaušinių}","{1|skardinė pjaustytų pomidorų|skardinės pjaustytų pomidorų|skardinių pjaustytų pomidorų|skardinės pjaustytų pomidorų}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{1|paprika|paprikos|paprikų|paprikos}","{2|skiltelė česnako|skiltelės česnako|skiltelių česnako|skiltelės česnako}","{1 a. š.} paprikos prieskonių","{80 g} fetos","{2 v. š.} aliejaus","Druska, pipirai","Duona"],
+ s:["{1|svogūną|svogūnus|svogūnų|svogūno} supjaustyk smulkiai, {1|papriką|paprikas|paprikų|paprikos} – juostelėmis, {2|skiltelę česnako|skilteles česnako|skiltelių česnako|skiltelės česnako} susmulkink.",
+    S("Didelėje keptuvėje su {2 v. š.} aliejaus ant vidutinės ugnies kepk svogūną ir papriką, kol suminkštės.",5),
+    S("Įmaišyk česnaką ir {1 a. š.} paprikos prieskonių, pakepink, kol pasklis kvapas.",1),
+    S("Supilk {1|skardinę pomidorų|skardines pomidorų|skardinių pomidorų|skardinės pomidorų}, pasūdyk ir troškink be dangčio, kol padažas sutirštės.",8,"Padažas turi būti tirštas – kitaip kiaušiniai išsilies."),
+    S("Šaukštu padaryk {4|duobutę|duobutes|duobučių} ir į kiekvieną įmušk po kiaušinį. Uždenk dangčiu ir kepk ant silpnos ugnies, kol baltymai sustings, o tryniai liks minkšti.",6,"Jei kiaušinių daug – imk didesnę keptuvę arba kepk per du kartus."),
+    "Užtrupink {80 g} fetos, pabarstyk pipirais ir valgyk tiesiai iš keptuvės su duona."]},
 
 /* ---------- Sriubos ---------- */
-{n:"Kopūstų sriuba", t:45, c:1, w:"jai", veg:1,
- i:["¼ baltojo kopūsto","1 morka","1 svogūnas","3 bulvės","1,5 l vandens","1 v. š. aliejaus","Lauro lapas, druska, pipirai","Krapai, grietinė patiekti"],
- s:["Svogūną supjaustyk smulkiai, morką sutarkuok stambia tarka, bulves nulupk ir supjaustyk kubeliais, kopūstą – plonomis juostelėmis.",
-    "Puode užvirink vandenį su lauro lapu ir šaukštu druskos.",
-    S("Kol verda, keptuvėje su aliejumi kepk svogūną ir morką ant vidutinės ugnies, kol suminkštės.",5),
+{n:"Kopūstų sriuba", t:45, c:1, w:"jai", veg:1, p:4,
+ i:["{¼|baltojo kopūsto galva|baltojo kopūsto galvos|baltojo kopūsto galvų|baltojo kopūsto galvos}","{1|morka|morkos|morkų|morkos}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{3|bulvė|bulvės|bulvių|bulvės}","{1,5 l} vandens","{1 v. š.} aliejaus","{1|lauro lapas|lauro lapai|lauro lapų|lauro lapo}, druska, pipirai","Krapai, grietinė patiekti"],
+ s:["{1|svogūną|svogūnus|svogūnų|svogūno} supjaustyk smulkiai, {1|morką|morkas|morkų|morkos} sutarkuok stambia tarka, {3|bulvę|bulves|bulvių|bulvės} nulupk ir supjaustyk kubeliais, {¼|kopūsto galvą|kopūsto galvas|kopūsto galvų|kopūsto galvos} – plonomis juostelėmis.",
+    "Puode užvirink {1,5 l} vandens su lauro lapu ir {1 v. š.} druskos.",
+    S("Kol verda, keptuvėje su {1 v. š.} aliejaus kepk svogūną ir morką ant vidutinės ugnies, kol suminkštės.",5),
     S("Į verdantį vandenį suberk bulves ir virk.",10),
     S("Sudėk kopūstą ir pakepintas daržoves. Virk, kol kopūstas ir bulvės suminkštės.",15),
     "Pagardink druska ir pipirais, išimk lauro lapą. Patiek su krapais ir šaukštu grietinės."]},
-{n:"Šaltibarščiai", t:30, c:1, w:"jai", veg:1,
- i:["1 l kefyro","300 g virtų arba marinuotų burokėlių","2 agurkai","2 kiaušiniai","Krapai, svogūnų laiškai","Druska","4–6 bulvės patiekti"],
- s:[S("Bulves nulupk ir virk pasūdytame vandenyje, kol peilis lengvai įsmegs.",20,"Kol verda – daryk kitus žingsnius."),
-    S("Kiaušinius virk atskirame puode, tada atvėsink šaltame vandenyje.",10),
-    "Burokėlius ir agurkus sutarkuok stambia tarka arba supjaustyk plonais šiaudeliais. Krapus ir laiškus smulkiai sukapok.",
-    "Dideliame dubenyje sumaišyk kefyrą su burokėliais, agurkais ir žalumynais. Pasūdyk ir gerai išmaišyk – spalva turi būti ryškiai rožinė.",
+{n:"Šaltibarščiai", t:30, c:1, w:"jai", veg:1, p:4,
+ i:["{1 l} kefyro","{300 g} virtų arba marinuotų burokėlių","{2|agurkas|agurkai|agurkų|agurko}","{2|kiaušinis|kiaušiniai|kiaušinių}","{1|sauja|saujos|saujų|saujos} krapų ir svogūnų laiškų","Druska","{6|bulvė|bulvės|bulvių|bulvės} patiekti"],
+ s:[S("{6|bulvę|bulves|bulvių|bulvės} nulupk ir virk pasūdytame vandenyje, kol peilis lengvai įsmegs.",20,"Kol verda – daryk kitus žingsnius."),
+    S("{2|kiaušinį|kiaušinius|kiaušinių} virk atskirame puode, tada atvėsink šaltame vandenyje.",10),
+    "{300 g} burokėlių ir {2|agurką|agurkus|agurkų|agurko} sutarkuok stambia tarka arba supjaustyk plonais šiaudeliais. Krapus ir laiškus smulkiai sukapok.",
+    "Dideliame dubenyje sumaišyk {1 l} kefyro su burokėliais, agurkais ir žalumynais. Pasūdyk ir gerai išmaišyk – spalva turi būti ryškiai rožinė.",
     S("Pastatyk į šaldytuvą, kad skoniai susijungtų.",0,"Užtenka 10–15 min."),
     "Pilk į lėkštes, įdėk perpjautą kiaušinį, o karštas bulves patiek atskirai."]},
-{n:"Moliūgų sriuba", t:40, c:1, w:"abu", veg:1,
- i:["800 g moliūgo","1 svogūnas","1 morka","2 skiltelės česnako","800 ml daržovių sultinio","100 ml grietinėlės","2 v. š. aliejaus","Druska, pipirai","Moliūgų sėklos patiekti"],
- s:["Moliūgą nulupk, išimk sėklas ir supjaustyk ~2 cm kubeliais. Svogūną ir morką supjaustyk smulkiai, česnaką susmulkink.",
-    S("Puode su aliejumi ant vidutinės ugnies kepk svogūną ir morką, kol suminkštės.",5),
+{n:"Moliūgų sriuba", t:40, c:1, w:"abu", veg:1, p:4,
+ i:["{800 g} moliūgo","{1|svogūnas|svogūnai|svogūnų|svogūno}","{1|morka|morkos|morkų|morkos}","{2|skiltelė česnako|skiltelės česnako|skiltelių česnako|skiltelės česnako}","{800 ml} daržovių sultinio","{100 ml} grietinėlės","{2 v. š.} aliejaus","Druska, pipirai","Moliūgų sėklos patiekti"],
+ s:["{800 g} moliūgo nulupk, išimk sėklas ir supjaustyk ~2 cm kubeliais. {1|svogūną|svogūnus|svogūnų|svogūno} ir {1|morką|morkas|morkų|morkos} supjaustyk smulkiai, {2|skiltelę česnako|skilteles česnako|skiltelių česnako|skiltelės česnako} susmulkink.",
+    S("Puode su {2 v. š.} aliejaus ant vidutinės ugnies kepk svogūną ir morką, kol suminkštės.",5),
     S("Įmaišyk česnaką ir pakepink.",1),
-    S("Suberk moliūgą ir užpilk sultiniu, kad vos apsemtų. Užvirink, uždenk ir virk ant silpnos ugnies, kol moliūgas visiškai suminkštės.",20),
+    S("Suberk moliūgą ir užpilk {800 ml} sultinio, kad vos apsemtų. Užvirink, uždenk ir virk ant silpnos ugnies, kol moliūgas visiškai suminkštės.",20),
     "Nukelk nuo ugnies ir sutrink trintuvu, kol sriuba taps visiškai vientisa.",
-    S("Įmaišyk grietinėlę, pagardink druska ir pipirais, pašildyk.",0,"Po grietinėlės sriubos nebevirink."),
+    S("Įmaišyk {100 ml} grietinėlės, pagardink druska ir pipirais, pašildyk.",0,"Po grietinėlės sriubos nebevirink."),
     S("Sausoje keptuvėje paskrudink moliūgų sėklas ir pabarstyk jomis sriubą.",2)]},
-{n:"Morkų sriuba", t:30, c:1, w:"abu", veg:1,
- i:["4 morkos","2 bulvės","1 svogūnas","1 l vandens arba sultinio","1 v. š. sviesto","Druska, pipirai","Grietinė patiekti"],
- s:["Morkas ir bulves nulupk ir supjaustyk griežinėliais, svogūną – smulkiai.",
-    S("Puode ištirpink sviestą ir kepk svogūną, kol taps skaidrus.",3),
-    S("Sudėk morkas ir bulves, užpilk vandeniu ar sultiniu, pasūdyk. Virk uždengęs, kol daržovės suminkštės.",20),
+{n:"Morkų sriuba", t:30, c:1, w:"abu", veg:1, p:4,
+ i:["{4|morka|morkos|morkų|morkos}","{2|bulvė|bulvės|bulvių|bulvės}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{1 l} vandens arba sultinio","{1 v. š.} sviesto","Druska, pipirai","Grietinė patiekti"],
+ s:["{4|morką|morkas|morkų|morkos} ir {2|bulvę|bulves|bulvių|bulvės} nulupk ir supjaustyk griežinėliais, {1|svogūną|svogūnus|svogūnų|svogūno} – smulkiai.",
+    S("Puode ištirpink {1 v. š.} sviesto ir kepk svogūną, kol taps skaidrus.",3),
+    S("Sudėk morkas ir bulves, užpilk {1 l} vandens ar sultinio, pasūdyk. Virk uždengęs, kol daržovės suminkštės.",20),
     S("Sutrink trintuvu iki vientisos masės.",0,"Jei per tiršta – įpilk vandens."),
     "Paragauk, pagardink ir patiek su šaukštu grietinės."]},
-{n:V("Vištienos sriuba su makaronais","Daržovių sriuba su makaronais"), t:50, c:1, w:"abu",
- i:[V("300 g vištienos","1 skardinė avinžirnių"),V("1,5 l vandens","1,5 l daržovių sultinio"),"2 morkos","1 svogūnas","2 bulvės","Sauja smulkių makaronų","Lauro lapas, druska, pipirai, krapai"],
- s:[V(S("Vištieną sudėk į puodą, užpilk šaltu vandeniu, įberk druskos ir lauro lapą. Užvirink, nugriebk putas ir virk ant silpnos ugnies.",25,"Nugriebus putas sultinys bus skaidrus."),"Užvirink sultinį su lauro lapu. Avinžirnius nuplauk ir nusausink."),
-    "Morkas supjaustyk griežinėliais, svogūną – smulkiai, bulves – kubeliais.",
+{n:V("Vištienos sriuba su makaronais","Daržovių sriuba su makaronais"), t:50, c:1, w:"abu", p:4,
+ i:[V("{300 g} vištienos","{1|skardinė avinžirnių|skardinės avinžirnių|skardinių avinžirnių|skardinės avinžirnių}"),V("{1,5 l} vandens","{1,5 l} daržovių sultinio"),"{2|morka|morkos|morkų|morkos}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{2|bulvė|bulvės|bulvių|bulvės}","{50 g} smulkių makaronų","{1|lauro lapas|lauro lapai|lauro lapų|lauro lapo}, druska, pipirai, krapai"],
+ s:[V(S("{300 g} vištienos sudėk į puodą, užpilk {1,5 l} šalto vandens, įberk druskos ir lauro lapą. Užvirink, nugriebk putas ir virk ant silpnos ugnies.",25,"Nugriebus putas sultinys bus skaidrus."),"Užvirink {1,5 l} sultinio su lauro lapu. {1|skardinę avinžirnių|skardines avinžirnių|skardinių avinžirnių|skardinės avinžirnių} nuplauk ir nusausink."),
+    "{2|morką|morkas|morkų|morkos} supjaustyk griežinėliais, {1|svogūną|svogūnus|svogūnų|svogūno} – smulkiai, {2|bulvę|bulves|bulvių|bulvės} – kubeliais.",
     V(S("Vištieną išimk ant lentelės, o į sultinį sudėk daržoves ir virk.",15),S("Į sultinį sudėk daržoves ir avinžirnius ir virk.",15)),
     V("Vištieną šakutėmis suplėšyk gabaliukais ir grąžink į puodą.",null),
-    S("Suberk makaronus ir virk, kol suminkštės.",6),
+    S("Suberk {50 g} makaronų ir virk, kol suminkštės.",6),
     "Paragauk, pagardink druska ir pipirais, užberk krapų."]},
 
 /* ---------- Pagrindiniai ---------- */
-{n:"Daržovių troškinys", t:40, c:2, w:"jai", veg:1,
- i:["1 cukinija","1 paprika","1 morka","1 svogūnas","2 bulvės","1 skardinė pjaustytų pomidorų","2 skiltelės česnako","2 v. š. aliejaus","Druska, pipirai, paprika, raudonėlis"],
- s:["Visas daržoves supjaustyk panašaus dydžio (~2 cm) kubeliais, česnaką susmulkink.",
-    S("Dideliame puode su aliejumi kepk svogūną, morką ir česnaką ant vidutinės ugnies.",5),
+{n:"Daržovių troškinys", t:40, c:2, w:"jai", veg:1, p:3,
+ i:["{1|cukinija|cukinijos|cukinijų|cukinijos}","{1|paprika|paprikos|paprikų|paprikos}","{1|morka|morkos|morkų|morkos}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{2|bulvė|bulvės|bulvių|bulvės}","{1|skardinė pjaustytų pomidorų|skardinės pjaustytų pomidorų|skardinių pjaustytų pomidorų|skardinės pjaustytų pomidorų}","{2|skiltelė česnako|skiltelės česnako|skiltelių česnako|skiltelės česnako}","{2 v. š.} aliejaus","Druska, pipirai, paprika, raudonėlis"],
+ s:["{1|cukiniją|cukinijas|cukinijų|cukinijos}, {1|papriką|paprikas|paprikų|paprikos}, {1|morką|morkas|morkų|morkos}, {1|svogūną|svogūnus|svogūnų|svogūno} ir {2|bulvę|bulves|bulvių|bulvės} supjaustyk panašaus dydžio (~2 cm) kubeliais, {2|skiltelę česnako|skilteles česnako|skiltelių česnako|skiltelės česnako} susmulkink.",
+    S("Dideliame puode su {2 v. š.} aliejaus kepk svogūną, morką ir česnaką ant vidutinės ugnies.",5),
     S("Sudėk bulves ir papriką, pamaišyk ir pakepink.",5),
-    S("Sudėk cukiniją, pomidorus, prieskonius ir pusę stiklinės vandens. Uždenk ir troškink ant silpnos ugnies, kol bulvės suminkštės.",20,"Retkarčiais pamaišyk, kad neprisviltų."),
+    S("Sudėk cukiniją, {1|skardinę pomidorų|skardines pomidorų|skardinių pomidorų|skardinės pomidorų}, prieskonius ir {100 ml} vandens. Uždenk ir troškink ant silpnos ugnies, kol bulvės suminkštės.",20,"Retkarčiais pamaišyk, kad neprisviltų."),
     "Paragauk ir pagardink. Tinka vienas, su duona arba ryžiais."]},
-{n:"Troškintas kalafioras su sūriu", t:30, c:2, w:"jai", veg:1,
- i:["1 kalafioras","30 g sviesto","1 v. š. miltų","300 ml pieno","100 g tarkuoto sūrio","Druska, muskatas"],
- s:["Kalafiorą padalink nedideliais žiedynais, sūrį sutarkuok.",
+{n:"Troškintas kalafioras su sūriu", t:30, c:2, w:"jai", veg:1, p:3,
+ i:["{1|kalafioras|kalafiorai|kalafiorų|kalafioro}","{30 g} sviesto","{1 v. š.} miltų","{300 ml} pieno","{100 g} tarkuoto sūrio","Druska, muskatas"],
+ s:["{1|kalafiorą|kalafiorus|kalafiorų|kalafioro} padalink nedideliais žiedynais, sutarkuok {100 g} sūrio.",
     S("Virk kalafiorą pasūdytame vandenyje, kol suminkštės, bet dar laikys formą. Nupilk.",7),
-    S("Tame pačiame puode ištirpink sviestą, įberk miltus ir maišyk, kol susijungs.",1),
-    S("Pamažu pilk pieną nuolat maišydamas, kad neliktų gumulų. Kaitink, kol padažas sutirštės kaip grietinė.",4),
-    "Įberk sūrio, žiupsnelį muskato ir druskos, maišyk, kol sūris išsilydys.",
+    S("Tame pačiame puode ištirpink {30 g} sviesto, įberk {1 v. š.} miltų ir maišyk, kol susijungs.",1),
+    S("Pamažu pilk {300 ml} pieno nuolat maišydamas, kad neliktų gumulų. Kaitink, kol padažas sutirštės kaip grietinė.",4),
+    "Įberk sūrį, žiupsnelį muskato ir druskos, maišyk, kol sūris išsilydys.",
     S("Sudėk kalafiorą, išmaišyk, uždenk ir troškink ant silpnos ugnies.",5,"Norint traškios plutelės – perkelk į formą, užberk sūrio ir kepk 200 °C 10 min.")]},
-{n:"Makaronai su keptu fetos sūriu", t:35, c:2, w:"jai", veg:1,
- i:["200 g fetos (vienu gabalu)","400 g vyšninių pomidorų","3 v. š. alyvuogių aliejaus","2 skiltelės česnako","Raudonėlis, pipirai","250 g makaronų","Bazilikas (nebūtina)"],
+{n:"Makaronai su keptu fetos sūriu", t:35, c:2, w:"jai", veg:1, p:3,
+ i:["{200 g} fetos (vienu gabalu)","{400 g} vyšninių pomidorų","{3 v. š.} alyvuogių aliejaus","{2|skiltelė česnako|skiltelės česnako|skiltelių česnako|skiltelės česnako}","Raudonėlis, pipirai","{250 g} makaronų","Bazilikas (nebūtina)"],
  s:["Įkaitink orkaitę iki 200 °C.",
-    "Į kepimo indą sudėk vyšninius pomidorus ir nuluptas česnako skilteles, vidury – visą fetos gabalą. Apšlakstyk aliejumi, pabarstyk raudonėliu ir pipirais.",
+    "Į kepimo indą sudėk {400 g} vyšninių pomidorų ir {2|nuluptą česnako skiltelę|nuluptas česnako skilteles|nuluptų česnako skiltelių|nuluptos česnako skiltelės}, vidury – {200 g} fetos gabalą. Apšlakstyk {3 v. š.} aliejaus, pabarstyk raudonėliu ir pipirais.",
     S("Kepk, kol pomidorai sprogs, o feta suminkštės ir šiek tiek paruduos.",25),
-    S("Tuo metu išvirk makaronus pasūdytame vandenyje. Nupildamas pasilik puodelį virimo vandens.",10),
+    S("Tuo metu išvirk {250 g} makaronų pasūdytame vandenyje. Nupildamas pasilik puodelį virimo vandens.",10),
     "Ištraukęs indą, šaukštu sutrink fetą, pomidorus ir česnaką į padažą.",
     S("Sudėk makaronus ir išmaišyk. Užberk baziliko.",0,"Jei per tiršta – įpilk kelis šaukštus virimo vandens.")]},
-{n:V("Kreminiai makaronai su vištiena","Kreminiai makaronai su pievagrybiais"), t:45, c:2, w:"man", src:"TikTok @dadsfoodtoday",
- i:[V("2 vištienos krūtinėlės","300 g pievagrybių arba kepto tofu"),"1 v. š. alyvuogių aliejaus","1–2 v. š. sviesto","Po 1 a. š.: Cajun, rūkytos ir saldžios paprikos, itališkų žolelių, česnako ir svogūno miltelių (mėsai ir padažui atskirai)","Druska, pipirai","225 g rigatoni","700 ml grietinėlės (35 %)",V("700 ml vištienos sultinio","700 ml daržovių sultinio"),"150–200 g tarkuoto sūrio (mocarela, čederis)","Petražolės, parmezanas (nebūtina)"],
- s:[V(S("Vištienos krūtinėles patrink aliejumi ir puse prieskonių, pasūdyk ir palaikyk šaldytuve.",20,"Jei skubi – marinavimą gali praleisti."),"Grybus supjaustyk storais griežinėliais (arba tofu kubeliais) ir sumaišyk su aliejumi ir puse prieskonių."),
+{n:V("Kreminiai makaronai su vištiena","Kreminiai makaronai su pievagrybiais"), t:45, c:2, w:"man", src:"TikTok @dadsfoodtoday", p:4,
+ i:[V("{2|vištienos krūtinėlė|vištienos krūtinėlės|vištienos krūtinėlių|vištienos krūtinėlės}","{300 g} pievagrybių arba kepto tofu"),"{1 v. š.} alyvuogių aliejaus","{1–2 v. š.} sviesto","Prieskonių mišinys: po {2 a. š.} Cajun, rūkytos ir saldžios paprikos, itališkų žolelių, česnako ir svogūno miltelių","Druska, pipirai","{225 g} rigatoni","{700 ml} grietinėlės (35 %)",V("{700 ml} vištienos sultinio","{700 ml} daržovių sultinio"),"{150–200 g} tarkuoto sūrio (mocarela, čederis)","Petražolės, parmezanas (nebūtina)"],
+ s:["Dubenėlyje sumaišyk prieskonius ir padalink į dvi lygias dalis: vieną mėsai (ar grybams), kitą padažui.",
+    V(S("{2|vištienos krūtinėlę|vištienos krūtinėles|vištienos krūtinėlių|vištienos krūtinėlės} patrink {1 v. š.} aliejaus ir puse prieskonių, pasūdyk ir palaikyk šaldytuve.",20,"Jei skubi – marinavimą gali praleisti."),"{300 g} grybų supjaustyk storais griežinėliais (arba tofu kubeliais) ir sumaišyk su {1 v. š.} aliejaus ir puse prieskonių."),
     V(S("Dideliame puode ant vidutiniškai stiprios ugnies kepk vištieną, kol iš abiejų pusių taps auksinė ir iškeps viduje.",6,"Po 2–3 min kiekvienai pusei. Iškepusi vištiena viduje nebėra rausva."),S("Dideliame puode ant stiprios ugnies kepk grybus ar tofu, kol apskrus.",6)),
     V("Vištieną išimk ant lentelės ir leisk pailsėti – taip liks sultingesnė.","Išimk ir atidėk."),
-    S("Tame pačiame puode (neplauk – ten skonis) sudėk makaronus, grietinėlę, sultinį, sviestą ir likusius prieskonius. Užvirink, uždenk ir virk ant silpnos ugnies, kol makaronai bus al dente.",15,"Kas kelias minutes pamaišyk. Jei per tiršta – įpilk sultinio."),
-    "Nukelk nuo ugnies ir įmaišyk sūrį, kol padažas taps kreminis ir blizgus.",
+    S("Tame pačiame puode (neplauk – ten skonis) sudėk {225 g} makaronų, {700 ml} grietinėlės, {700 ml} sultinio, {1–2 v. š.} sviesto ir likusius prieskonius. Užvirink, uždenk ir virk ant silpnos ugnies, kol makaronai bus al dente.",15,"Kas kelias minutes pamaišyk. Jei per tiršta – įpilk sultinio."),
+    "Nukelk nuo ugnies ir įmaišyk {150–200 g} tarkuoto sūrio, kol padažas taps kreminis ir blizgus.",
     V("Vištieną supjaustyk griežinėliais ir sudėk ant makaronų. Pabarstyk petražolėmis ir parmezanu.","Sudėk grybus ar tofu ant makaronų. Pabarstyk petražolėmis ir parmezanu.")]},
-{n:V("Vištiena su grietinėle ir ryžiais","Ryžiai su grietinėle ir sūriu"), t:30, c:2, w:"man",
- i:[V("2 vištienos filė","60 g tarkuoto sūrio"),"1 puodelis ryžių",V("200 ml grietinėlės","100 ml grietinėlės arba pieno"),V("1 svogūnas",null),V("1 v. š. aliejaus",null),"Druska, pipirai, paprika, česnako milteliai"],
- s:["Ryžius nuplauk, kol vanduo taps skaidrus, užpilk 2 puodeliais vandens ir pasūdyk.",
+{n:V("Vištiena su grietinėle ir ryžiais","Ryžiai su grietinėle ir sūriu"), t:30, c:2, w:"man", p:2,
+ i:[V("{2|vištienos filė|vištienos filė|vištienos filė|vištienos filė}","{60 g} tarkuoto sūrio"),"{1|puodelis ryžių|puodeliai ryžių|puodelių ryžių|puodelio ryžių}",V("{200 ml} grietinėlės","{100 ml} grietinėlės arba pieno"),V("{1|svogūnas|svogūnai|svogūnų|svogūno}",null),V("{1 v. š.} aliejaus",null),"Druska, pipirai, paprika, česnako milteliai"],
+ s:["{1|puodelį ryžių|puodelius ryžių|puodelių ryžių|puodelio ryžių} nuplauk, kol vanduo taps skaidrus, užpilk {2|puodeliu|puodeliais|puodelių|puodelio} vandens ir pasūdyk.",
     S("Užvirink, uždenk ir virk ant silpnos ugnies, kol vanduo susigers.",15,"Neatidarinėk dangčio."),
-    V("Kol verda, vištieną supjaustyk kąsnio dydžio gabaliukais ir pagardink paprika, česnako milteliais ir druska. Svogūną supjaustyk smulkiai.",null),
-    V(S("Keptuvėje su aliejumi ant stiprios ugnies apkepk vištieną iš visų pusių. Sudėk svogūną ir kepk, kol suminkštės.",7),null),
-    V(S("Užpilk grietinėle, užvirink ir troškink ant silpnos ugnies, kol padažas sutirštės.",5),S("Į karštus ryžius įpilk grietinėlės ar pieno, įberk sūrio ir prieskonių. Kaitink maišydama, kol sūris išsilydys ir ryžiai taps kreminiai.",2)),
+    V("Kol verda, {2|vištienos filė|vištienos filė|vištienos filė|vištienos filė} supjaustyk kąsnio dydžio gabaliukais ir pagardink paprika, česnako milteliais ir druska. {1|svogūną|svogūnus|svogūnų|svogūno} supjaustyk smulkiai.",null),
+    V(S("Keptuvėje su {1 v. š.} aliejaus ant stiprios ugnies apkepk vištieną iš visų pusių. Sudėk svogūną ir kepk, kol suminkštės.",7),null),
+    V(S("Užpilk {200 ml} grietinėlės, užvirink ir troškink ant silpnos ugnies, kol padažas sutirštės.",5),S("Į karštus ryžius įpilk {100 ml} grietinėlės ar pieno, įberk {60 g} sūrio ir prieskonių. Kaitink maišydama, kol sūris išsilydys ir ryžiai taps kreminiai.",2)),
     V("Vištieną su padažu patiek ant paprastų ryžių.",null)]},
-{n:"Ryžiai su grietinėle ir sūriu", t:25, c:2, w:"abu", veg:1,
- i:["1 puodelis ryžių","100 ml pieno arba grietinėlės","60 g tarkuoto sūrio","Druska, pipirai, paprika, česnako milteliai"],
- s:["Ryžius nuplauk, užpilk 2 puodeliais vandens ir pasūdyk.",
+{n:"Ryžiai su grietinėle ir sūriu", t:25, c:2, w:"abu", veg:1, p:2,
+ i:["{1|puodelis ryžių|puodeliai ryžių|puodelių ryžių|puodelio ryžių}","{100 ml} pieno arba grietinėlės","{60 g} tarkuoto sūrio","Druska, pipirai, paprika, česnako milteliai"],
+ s:["{1|puodelį ryžių|puodelius ryžių|puodelių ryžių|puodelio ryžių} nuplauk, užpilk {2|puodeliu|puodeliais|puodelių|puodelio} vandens ir pasūdyk.",
     S("Užvirink, uždenk ir virk ant silpnos ugnies, kol vanduo susigers.",15,"Neatidarinėk dangčio."),
-    "Įpilk pieno ar grietinėlės, įberk sūrio ir prieskonių.",
+    "Įpilk {100 ml} pieno ar grietinėlės, įberk {60 g} sūrio ir prieskonių.",
     S("Kaitink ant silpnos ugnies maišydamas, kol sūris išsilydys ir ryžiai taps kreminiai.",2)]},
-{n:"Makaronai su sūriu", t:15, c:2, w:"abu", veg:1,
- i:["200 g makaronų","1 v. š. sviesto","60 g tarkuoto sūrio","Druska, pipirai"],
- s:["Dideliame puode užvirink vandenį ir gausiai pasūdyk.",
-    S("Suberk makaronus ir virk, retkarčiais pamaišydamas.",10,"Tikslų laiką rasi ant pakuotės."),
+{n:"Makaronai su sūriu", t:15, c:2, w:"abu", veg:1, p:2,
+ i:["{200 g} makaronų","{1 v. š.} sviesto","{60 g} tarkuoto sūrio","Druska, pipirai"],
+ s:["Dideliame puode užvirink vandenį ir gausiai pasūdyk (apie {1 v. š.} druskos 2 l vandens).",
+    S("Suberk {200 g} makaronų ir virk, retkarčiais pamaišydamas.",10,"Tikslų laiką rasi ant pakuotės."),
     "Prieš nupildamas pasilik puodelį virimo vandens, tada nupilk.",
-    "Grąžink makaronus į karštą puodą, įdėk sviesto, sūrio ir 2–3 šaukštus virimo vandens. Maišyk, kol sūris išsilydys į kreminį padažą.",
+    "Grąžink makaronus į karštą puodą, įdėk {1 v. š.} sviesto, {60 g} sūrio ir {2–3 v. š.} virimo vandens. Maišyk, kol sūris išsilydys į kreminį padažą.",
     "Pagardink pipirais ir valgyk iškart."]},
-{n:V("Makaronai su dešrelėmis pomidorų padaže","Makaronai su pievagrybiais pomidorų padaže"), t:20, c:2, w:"abu",
- i:["200 g makaronų",V("3–4 dešrelės","200 g pievagrybių"),"1 svogūnas","300 ml pomidorų padažo","1 v. š. aliejaus","Tarkuotas sūris"],
- s:[S("Išvirk makaronus pasūdytame vandenyje.",10),
-    V("Kol verda, dešreles supjaustyk griežinėliais, svogūną – smulkiai.","Kol verda, pievagrybius supjaustyk griežinėliais, svogūną – smulkiai."),
-    V(S("Keptuvėje su aliejumi kepk svogūną ir dešreles, kol dešrelės apskrus.",5),S("Keptuvėje su aliejumi ant stiprios ugnies kepk pievagrybius, kol išgaruos skystis ir jie apskrus. Sudėk svogūną ir pakepink.",7)),
-    S("Supilk pomidorų padažą, pagardink ir pavirink.",3),
-    "Sumaišyk su nupiltais makaronais, sudėk į lėkštes ir užberk sūrio."]},
-{n:"Keptieji ryžiai su kiaušiniu", t:20, c:2, w:"abu", veg:1,
- i:["2 puodeliai virtų ryžių (arba 1 puodelis žalių)","2 kiaušiniai","1 morka","½ svogūno","2 v. š. aliejaus","2 v. š. sojų padažo"],
- s:[S("Jei neturi virtų ryžių – išvirk ir leisk atvėsti.",15,"Vakarykščiai šalti ryžiai tinka geriausiai – nelimpa."),
-    "Morką sutarkuok, svogūną supjaustyk smulkiai, kiaušinius išplak.",
-    S("Didelėje keptuvėje su aliejumi ant stiprios ugnies kepk svogūną ir morką.",3),
+{n:V("Makaronai su dešrelėmis pomidorų padaže","Makaronai su pievagrybiais pomidorų padaže"), t:20, c:2, w:"abu", p:2,
+ i:["{200 g} makaronų",V("{4|dešrelė|dešrelės|dešrelių|dešrelės}","{200 g} pievagrybių"),"{1|svogūnas|svogūnai|svogūnų|svogūno}","{300 ml} pomidorų padažo","{1 v. š.} aliejaus","{40 g} tarkuoto sūrio"],
+ s:[S("Išvirk {200 g} makaronų pasūdytame vandenyje.",10),
+    V("Kol verda, {4|dešrelę|dešreles|dešrelių|dešrelės} supjaustyk griežinėliais, {1|svogūną|svogūnus|svogūnų|svogūno} – smulkiai.","Kol verda, {200 g} pievagrybių supjaustyk griežinėliais, {1|svogūną|svogūnus|svogūnų|svogūno} – smulkiai."),
+    V(S("Keptuvėje su {1 v. š.} aliejaus kepk svogūną ir dešreles, kol dešrelės apskrus.",5),S("Keptuvėje su {1 v. š.} aliejaus ant stiprios ugnies kepk pievagrybius, kol išgaruos skystis ir jie apskrus. Sudėk svogūną ir pakepink.",7)),
+    S("Supilk {300 ml} pomidorų padažo, pagardink ir pavirink.",3),
+    "Sumaišyk su nupiltais makaronais, sudėk į lėkštes ir užberk {40 g} sūrio."]},
+{n:"Keptieji ryžiai su kiaušiniu", t:20, c:2, w:"abu", veg:1, p:2,
+ i:["{2|puodelis virtų ryžių|puodeliai virtų ryžių|puodelių virtų ryžių|puodelio virtų ryžių} (arba {1|puodelis|puodeliai|puodelių|puodelio} žalių)","{2|kiaušinis|kiaušiniai|kiaušinių}","{1|morka|morkos|morkų|morkos}","{½|svogūnas|svogūnai|svogūnų|svogūno}","{2 v. š.} aliejaus","{2 v. š.} sojų padažo"],
+ s:[S("Jei neturi virtų ryžių – išvirk {1|puodelį|puodelius|puodelių|puodelio} žalių ir leisk atvėsti.",15,"Vakarykščiai šalti ryžiai tinka geriausiai – nelimpa."),
+    "{1|morką|morkas|morkų|morkos} sutarkuok, {½|svogūną|svogūnus|svogūnų|svogūno} supjaustyk smulkiai, {2|kiaušinį|kiaušinius|kiaušinių} išplak.",
+    S("Didelėje keptuvėje su {2 v. š.} aliejaus ant stiprios ugnies kepk svogūną ir morką.",3),
     S("Suberk ryžius ir kepk maišydamas, kad įkaistų ir šiek tiek apskrustų.",3),
     S("Pastumk ryžius į šoną, į tuščią vietą supilk kiaušinius ir maišyk, kol sustings. Tada išmaišyk su ryžiais.",2),
-    "Pagardink sojų padažu ir paragauk."]},
-{n:"Makaronų apkepas", t:45, c:2, w:"abu",
- i:["250 g makaronų","3 kiaušiniai","200 ml pieno",V("150 g kumpio arba 3 dešrelės","1 brokolis arba 1 paprika"),"100 g tarkuoto sūrio","Sviestas formai, druska, pipirai"],
+    "Pagardink {2 v. š.} sojų padažo ir paragauk."]},
+{n:"Makaronų apkepas", t:45, c:2, w:"abu", p:4,
+ i:["{250 g} makaronų","{3|kiaušinis|kiaušiniai|kiaušinių}","{200 ml} pieno",V("{150 g} kumpio","{1|brokolis|brokoliai|brokolių|brokolio} arba {1|paprika|paprikos|paprikų|paprikos}"),"{100 g} tarkuoto sūrio","Sviestas formai, druska, pipirai"],
  s:["Įkaitink orkaitę iki 200 °C, formą ištepk sviestu.",
-    S("Makaronus virk 2 min trumpiau, nei nurodyta ant pakuotės, ir nupilk.",8,"Orkaitėje jie dar suminkštės."),
-    V("Kumpį supjaustyk kubeliais, sumaišyk su makaronais ir sudėk į formą.","Brokolį padalink mažais žiedynais (arba supjaustyk papriką), sumaišyk su makaronais ir sudėk į formą."),
-    "Kiaušinius išplak su pienu, druska ir pipirais ir užpilk ant makaronų.",
-    S("Užberk sūrio ir kepk, kol viršus paruduos, o masė sustings.",25),
+    S("{250 g} makaronų virk 2 min trumpiau, nei nurodyta ant pakuotės, ir nupilk.",8,"Orkaitėje jie dar suminkštės."),
+    V("{150 g} kumpio supjaustyk kubeliais, sumaišyk su makaronais ir sudėk į formą.","{1|brokolį|brokolius|brokolių|brokolio} padalink mažais žiedynais (arba supjaustyk papriką), sumaišyk su makaronais ir sudėk į formą."),
+    "{3|kiaušinį|kiaušinius|kiaušinių} išplak su {200 ml} pieno, druska ir pipirais ir užpilk ant makaronų.",
+    S("Užberk {100 g} sūrio ir kepk, kol viršus paruduos, o masė sustings.",25),
     S("Leisk pastovėti, kad lengviau pjaustytųsi.",5)]},
-{n:"Grikių košė su grietine ir sviestu", t:20, c:2, w:"abu", veg:1,
- i:["1 puodelis grikių","2 puodeliai vandens","Druska","1 v. š. sviesto","Grietinė"],
- s:["Grikius perrink ir nuplauk, kol vanduo taps skaidrus.",
+{n:"Grikių košė su grietine ir sviestu", t:20, c:2, w:"abu", veg:1, p:3,
+ i:["{1|puodelis grikių|puodeliai grikių|puodelių grikių|puodelio grikių}","{2|puodelis vandens|puodeliai vandens|puodelių vandens|puodelio vandens}","Druska","{1 v. š.} sviesto","Grietinė"],
+ s:["{1|puodelį grikių|puodelius grikių|puodelių grikių|puodelio grikių} perrink ir nuplauk, kol vanduo taps skaidrus.",
     S("Sausame puode ant vidutinės ugnies pakaitink grikius, kol pasklis riešutinis kvapas.",2,"Nebūtina, bet skonis būna ryškesnis."),
-    "Užpilk verdančiu vandeniu ir pasūdyk.",
+    "Užpilk {2|puodeliu|puodeliais|puodelių|puodelio} verdančio vandens ir pasūdyk.",
     S("Uždenk ir virk ant labai silpnos ugnies, kol vanduo susigers.",15),
-    "Įmaišyk sviesto ir patiek su grietine."]},
-{n:"Bulvių košė su prieskoniais", t:30, c:2, w:"abu", veg:1,
- i:["6 bulvės","100 ml pieno","30 g sviesto","Druska, pipirai, česnako milteliai, muskatas, krapai"],
- s:["Bulves nulupk, supjaustyk vienodais gabalais, sudėk į puodą, užpilk šaltu vandeniu ir pasūdyk.",
+    "Įmaišyk {1 v. š.} sviesto ir patiek su grietine."]},
+{n:"Bulvių košė su prieskoniais", t:30, c:2, w:"abu", veg:1, p:4,
+ i:["{6|bulvė|bulvės|bulvių|bulvės}","{100 ml} pieno","{30 g} sviesto","Druska, pipirai, česnako milteliai, muskatas, krapai"],
+ s:["{6|bulvę|bulves|bulvių|bulvės} nulupk, supjaustyk vienodais gabalais, sudėk į puodą, užpilk šaltu vandeniu ir pasūdyk.",
     S("Užvirink ir virk, kol peilis lengvai įsmegs.",20),
-    "Kol verda, pašildyk pieną (nevirink).",
+    "Kol verda, pašildyk {100 ml} pieno (nevirink).",
     S("Nupilk vandenį ir palik bulves puode minutei, kad išgaruotų drėgmė.",1),
-    "Sutrink grūstuve, įdėk sviesto ir pamažu pilk karštą pieną, kol košė taps puri.",
+    "Sutrink grūstuve, įdėk {30 g} sviesto ir pamažu pilk karštą pieną, kol košė taps puri.",
     "Pagardink druska, pipirais, česnako milteliais, muskatu ir įmaišyk krapų."]},
-{n:"Keptos bulvės su svogūnais", t:30, c:2, w:"abu", veg:1,
- i:["5–6 bulvės","1 svogūnas","3 v. š. aliejaus arba sviesto","Druska, pipirai"],
- s:["Bulves nulupk, supjaustyk ~5 mm griežinėliais ir nusausink rankšluosčiu. Svogūną supjaustyk pusžiedžiais.",
-    S("Didelėje keptuvėje įkaitink aliejų ant vidutiniškai stiprios ugnies, sudėk bulves vienu sluoksniu ir kepk nemaišydamas.",5,"Nemaišant susidaro traški plutelė."),
+{n:"Keptos bulvės su svogūnais", t:30, c:2, w:"abu", veg:1, p:3,
+ i:["{6|bulvė|bulvės|bulvių|bulvės}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{3 v. š.} aliejaus arba sviesto","Druska, pipirai"],
+ s:["{6|bulvę|bulves|bulvių|bulvės} nulupk, supjaustyk ~5 mm griežinėliais ir nusausink rankšluosčiu. {1|svogūną|svogūnus|svogūnų|svogūno} supjaustyk pusžiedžiais.",
+    S("Didelėje keptuvėje įkaitink {3 v. š.} aliejaus ant vidutiniškai stiprios ugnies, sudėk bulves vienu sluoksniu ir kepk nemaišydamas.",5,"Nemaišant susidaro traški plutelė. Jei bulvių daug – kepk per du kartus."),
     S("Apversk ir kepk toliau, kas kelias minutes pamaišydamas, kol bulvės suminkštės ir apskrus.",15),
     S("Sudėk svogūną, pasūdyk ir kepk, kol svogūnas taps auksinis.",5),
     "Pagardink pipirais ir patiek su grietine ar raugintais agurkais."]},
-{n:"Orkaitėje keptos bulvės", t:45, c:2, w:"abu", veg:1,
- i:["6 bulvės","3 v. š. aliejaus","Druska, pipirai, paprika, česnako milteliai, rozmarinas","Grietinė arba česnakinis padažas"],
+{n:"Orkaitėje keptos bulvės", t:45, c:2, w:"abu", veg:1, p:3,
+ i:["{6|bulvė|bulvės|bulvių|bulvės}","{3 v. š.} aliejaus","Druska, pipirai, paprika, česnako milteliai, rozmarinas","Grietinė arba česnakinis padažas"],
  s:["Įkaitink orkaitę iki 200 °C.",
-    S("Bulves gerai nuplauk (lupti nebūtina), supjaustyk skiltelėmis ir nusausink rankšluosčiu.",0,"Sausos bulvės apkepa traškiau."),
-    "Dubenyje sumaišyk bulves su aliejumi ir prieskoniais.",
-    "Išdėliok ant kepimo popieriaus vienu sluoksniu, kad nesiliestų.",
+    S("{6|bulvę|bulves|bulvių|bulvės} gerai nuplauk (lupti nebūtina), supjaustyk skiltelėmis ir nusausink rankšluosčiu.",0,"Sausos bulvės apkepa traškiau."),
+    "Dubenyje sumaišyk bulves su {3 v. š.} aliejaus ir prieskoniais.",
+    S("Išdėliok ant kepimo popieriaus vienu sluoksniu, kad nesiliestų.",0,"Jei netelpa – naudok dvi skardas."),
     S("Kepk.",20),
     S("Apversk ir kepk, kol taps auksinės ir traškios.",20),
     "Patiek su grietine arba česnakiniu padažu."]},
-{n:"Bulvių blynai", t:40, c:2, w:"abu", veg:1,
- i:["6 bulvės","1 svogūnas","1 kiaušinis","2 v. š. miltų","Druska, pipirai","Aliejus kepti","Grietinė patiekti"],
- s:["Bulves nulupk ir kartu su svogūnu sutarkuok smulkia tarka.",
+{n:"Bulvių blynai", t:40, c:2, w:"abu", veg:1, p:3,
+ i:["{6|bulvė|bulvės|bulvių|bulvės}","{1|svogūnas|svogūnai|svogūnų|svogūno}","{1|kiaušinis|kiaušiniai|kiaušinių}","{2 v. š.} miltų","Druska, pipirai","Aliejus kepti","Grietinė patiekti"],
+ s:["{6|bulvę|bulves|bulvių|bulvės} nulupk ir kartu su {1|svogūnu|svogūnais|svogūnų|svogūno} sutarkuok smulkia tarka.",
     S("Masę sudėk į rankšluostį ar sietelį ir gerai nuspausk skystį.",0,"Kuo sausesnė masė, tuo traškesni blynai."),
-    "Įmaišyk kiaušinį, miltus, druską ir pipirus.",
+    "Įmaišyk {1|kiaušinį|kiaušinius|kiaušinių}, {2 v. š.} miltų, druską ir pipirus.",
     "Keptuvėje įkaitink ~1 cm aliejaus ant vidutinės ugnies.",
     S("Šaukštu dėk masę ir suplok. Kepk, kol kraštai paruduos, tada apversk ir kepk kitą pusę.",8,"Po 3–4 min kiekvienai pusei."),
     "Iškeptus dėk ant popierinio rankšluosčio ir patiek su grietine."]},
-{n:"Cukinijų blynai", t:30, c:2, w:"abu", veg:1,
- i:["1 didelė cukinija","2 kiaušiniai","4–5 v. š. kvietinių miltų","½ a. š. kepimo miltelių","Druska, juodieji pipirai","Česnakas arba krapai (nebūtina)","Aliejus kepti","Grietinė patiekti"],
- s:["Cukiniją sutarkuok stambia tarka ir pasūdyk.",
+{n:"Cukinijų blynai", t:30, c:2, w:"abu", veg:1, p:2,
+ i:["{1|didelė cukinija|didelės cukinijos|didelių cukinijų|didelės cukinijos}","{2|kiaušinis|kiaušiniai|kiaušinių}","{4–5 v. š.} kvietinių miltų","{½ a. š.} kepimo miltelių","Druska, juodieji pipirai","Česnakas arba krapai (nebūtina)","Aliejus kepti","Grietinė patiekti"],
+ s:["{1|cukiniją|cukinijas|cukinijų|cukinijos} sutarkuok stambia tarka ir pasūdyk.",
     S("Palik, kad cukinija išleistų sultis.",10),
     S("Rankomis arba per rankšluostį stipriai nuspausk skystį.",0,"Tai svarbiausias žingsnis – kitaip blynai bus šlapi."),
-    "Įmaišyk kiaušinius, miltus, kepimo miltelius, pipirus ir, jei nori, česnaką ar krapus. Masė turi būti tiršta.",
+    "Įmaišyk {2|kiaušinį|kiaušinius|kiaušinių}, {4–5 v. š.} miltų, {½ a. š.} kepimo miltelių, pipirus ir, jei nori, česnaką ar krapus. Masė turi būti tiršta.",
     S("Keptuvėje įkaitink aliejaus, šaukštu dėk masę ir kepk ant vidutinės ugnies, kol apačia paruduos. Apversk ir kepk kitą pusę.",6,"Po 3 min kiekvienai pusei."),
     "Patiek su grietine."]},
-{n:V("Korėjietiška traški vištiena","Korėjietiškas traškus kalafioras"), t:30, c:2, w:"man", src:"TikTok @foodeanie",
- i:[V("1 vištienos krūtinėlė","½ kalafioro"),"2 kiaušiniai","3 saujos kukurūzų dribsnių","Po 1 v. š.: paprika, čili, česnako milteliai, maltas imbieras","Padažui: 1,5 v. š. gochujang, 2 v. š. sojų padažo, 1 a. š. ryžių acto, 2 a. š. mirino, 3 v. š. medaus","Sezamas, svogūnų laiškai"],
- s:[V("Vištieną supjaustyk ~3 cm gabaliukais ir nusausink.","Kalafiorą padalink ~3 cm žiedynais."),
-    "Dubenyje sumaišyk papriką, čili, česnako miltelius ir imbierą, apvoliok gabaliukus prieskoniuose.",
-    "Viename dubenėlyje išplak kiaušinius, kitame rankomis sutrupink kukurūzų dribsnius.",
+{n:V("Korėjietiška traški vištiena","Korėjietiškas traškus kalafioras"), t:30, c:2, w:"man", src:"TikTok @foodeanie", p:1,
+ i:[V("{1|vištienos krūtinėlė|vištienos krūtinėlės|vištienos krūtinėlių|vištienos krūtinėlės}","{½|kalafioras|kalafiorai|kalafiorų|kalafioro}"),"{2|kiaušinis|kiaušiniai|kiaušinių}","{3|sauja kukurūzų dribsnių|saujos kukurūzų dribsnių|saujų kukurūzų dribsnių|saujos kukurūzų dribsnių}","Po {1 v. š.}: paprika, čili, česnako milteliai, maltas imbieras","Padažui: {1,5 v. š.} gochujang, {2 v. š.} sojų padažo, {1 a. š.} ryžių acto, {2 a. š.} mirino, {3 v. š.} medaus","Sezamas, svogūnų laiškai"],
+ s:[V("{1|vištienos krūtinėlę|vištienos krūtinėles|vištienos krūtinėlių|vištienos krūtinėlės} supjaustyk ~3 cm gabaliukais ir nusausink.","{½|kalafiorą|kalafiorus|kalafiorų|kalafioro} padalink ~3 cm žiedynais."),
+    "Dubenyje sumaišyk po {1 v. š.} paprikos, čili, česnako miltelių ir imbiero, apvoliok gabaliukus prieskoniuose.",
+    "Viename dubenėlyje išplak {2|kiaušinį|kiaušinius|kiaušinių}, kitame rankomis sutrupink {3|saują|saujas|saujų|saujos} kukurūzų dribsnių.",
     "Kiekvieną gabaliuką pamirkyk kiaušinyje ir iškart apvoliok dribsniuose, paspausdamas, kad prikibtų.",
-    V(S("Kepk air fryeryje 200 °C, įpusėjus apversk.",16),S("Kepk air fryeryje 200 °C, įpusėjus apversk.",18)),
-    S("Kol kepa, keptuvėje sumaišyk visus padažo ingredientus ir pavirink ant silpnos ugnies, kol sutirštės.",3),
+    V(S("Kepk air fryeryje 200 °C, įpusėjus apversk.",16,"Jei daug – kepk per kelis kartus, kad gabaliukai nesiliestų."),S("Kepk air fryeryje 200 °C, įpusėjus apversk.",18,"Jei daug – kepk per kelis kartus, kad gabaliukai nesiliestų.")),
+    S("Kol kepa, keptuvėje sumaišyk {1,5 v. š.} gochujang, {2 v. š.} sojų padažo, {1 a. š.} ryžių acto, {2 a. š.} mirino ir {3 v. š.} medaus. Pavirink ant silpnos ugnies, kol sutirštės.",3),
     S("Suberk gabaliukus į padažą ir greitai apvoliok. Pabarstyk sezamu ir svogūnų laiškais.",0,"Valgyk iškart, kol traškūs.")]},
 
 /* ---------- Picos ---------- */
-{n:"Pica iš Lidl Margaritos", t:15, c:3, w:"abu",
- i:["Lidl Margarita pica","50 g papildomo tarkuoto sūrio","1 mocarelos rutulys",V("Saliamio griežinėliai",null)],
+{n:"Pica iš Lidl Margaritos", t:15, c:3, w:"abu", p:1, u:PICA,
+ i:["{1|Lidl Margarita pica|Lidl Margarita picos|Lidl Margarita picų}","{50 g} papildomo tarkuoto sūrio","{1|mocarelos rutulys|mocarelos rutuliai|mocarelos rutulių|mocarelos rutulio}",V("{8|saliamio griežinėlis|saliamio griežinėliai|saliamio griežinėlių}",null)],
  s:["Įkaitink orkaitę pagal pakuotės nurodymus (dažniausiai 220 °C).",
-    V("Ant picos užberk tarkuoto sūrio, suplėšyk mocarelą ir išdėliok saliamį.","Ant picos užberk tarkuoto sūrio ir suplėšyk mocarelą."),
-    S("Kepk ant grotelių, kol sūris burbuliuos ir kraštai paruduos.",12)]},
-{n:"Pica ant pirkto paplotėlio", t:20, c:3, w:"abu",
- i:["Picos paplotėlis","2 v. š. majonezo","3 v. š. pomidorų padažo","80 g tarkuoto sūrio","1 mocarelos rutulys",V("Saliamio griežinėliai",null)],
+    V("Ant picos užberk {50 g} tarkuoto sūrio, suplėšyk {1|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio} ir išdėliok {8|saliamio griežinėlį|saliamio griežinėlius|saliamio griežinėlių}.","Ant picos užberk {50 g} tarkuoto sūrio ir suplėšyk {1|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio}."),
+    S("Kepk ant grotelių, kol sūris burbuliuos ir kraštai paruduos.",12,"Jei picų kelios – kepk po vieną arba keisk lentynas įpusėjus.")]},
+{n:"Pica ant pirkto paplotėlio", t:20, c:3, w:"abu", p:1, u:PICA,
+ i:["{1|picos paplotėlis|picos paplotėliai|picos paplotėlių}","{2 v. š.} majonezo","{3 v. š.} pomidorų padažo","{80 g} tarkuoto sūrio","{1|mocarelos rutulys|mocarelos rutuliai|mocarelos rutulių|mocarelos rutulio}",V("{8|saliamio griežinėlis|saliamio griežinėliai|saliamio griežinėlių}",null)],
  s:["Įkaitink orkaitę iki 220 °C.",
-    "Mažame dubenėlyje sumaišyk majonezą su pomidorų padažu.",
+    "Mažame dubenėlyje sumaišyk {2 v. š.} majonezo su {3 v. š.} pomidorų padažo.",
     "Paplotėlį padėk ant kepimo popieriaus ir tolygiai užtepk padažą, palikdamas 1 cm kraštą.",
-    V("Užberk tarkuoto sūrio, suplėšyk mocarelą ir išdėliok saliamį.","Užberk tarkuoto sūrio ir suplėšyk mocarelą."),
+    V("Užberk {80 g} tarkuoto sūrio, suplėšyk {1|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio} ir išdėliok {8|saliamio griežinėlį|saliamio griežinėlius|saliamio griežinėlių}.","Užberk {80 g} tarkuoto sūrio ir suplėšyk {1|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio}."),
     S("Kepk, kol sūris išsilydys ir paruduos.",11)]},
-{n:"Pica nuo nulio", t:40, x:"+3 d.", c:3, w:"abu", src:"TikTok Dough Guy",
- i:["Tešlai (~3 picoms): 500 g duonos miltų, 310 g vandens, 2 g sausų mielių, 13 g druskos, 17 g alyvuogių aliejaus, 10 g cukraus","Majonezo ir pomidorų padažo mišinys","Tarkuotas sūris, mocarela",V("Saliamio griežinėliai",null)],
- s:["Dubenyje sumaišyk miltus, mieles ir cukrų. Įpilk vandenį ir maišyk, kol neliks sausų miltų.",
-    S("Įberk druską, įpilk aliejų ir minkyk ant stalo, kol tešla taps glotni ir elastinga.",10),
+{n:"Pica nuo nulio", t:40, x:"+3 d.", c:3, w:"abu", src:"TikTok Dough Guy", p:3, u:PICA,
+ i:["{500 g} duonos miltų","{310 g} vandens","{2 g} sausų mielių","{13 g} druskos","{17 g} alyvuogių aliejaus","{10 g} cukraus","Padažui kiekvienai picai: 2 v. š. majonezo ir 3 v. š. pomidorų padažo","Kiekvienai picai: 80 g tarkuoto sūrio ir ½ mocarelos rutulio",V("Saliamio griežinėliai",null)],
+ s:["Dubenyje sumaišyk {500 g} miltų, {2 g} mielių ir {10 g} cukraus. Įpilk {310 g} vandens ir maišyk, kol neliks sausų miltų.",
+    S("Įberk {13 g} druskos, įpilk {17 g} aliejaus ir minkyk ant stalo, kol tešla taps glotni ir elastinga.",10),
     S("Sudėk tešlą į aliejumi pateptą indą, uždenk ir laikyk šaldytuve 3 dienas.",0,"Lėtas brandinimas duoda skonį ir burbulus."),
-    "Kepimo dieną padalink tešlą į 3 kukulius, uždenk ir palik kambario temperatūroje 2–3 val.",
+    S("Kepimo dieną padalink tešlą į {3|kukulį|kukulius|kukulių} (po ~280 g), uždenk ir palik kambario temperatūroje 2–3 val.",0,"Pasverk visą tešlą ir padalink iš picų skaičiaus – kukuliai bus vienodi."),
     "Įkaitink orkaitę iki aukščiausios temperatūros (250 °C ar daugiau) kartu su skarda ar picos akmeniu.",
     S("Kukulį pirštais ištempk nuo vidurio į kraštus, palikdamas storesnį kraštelį.",0,"Nekočiok – iš tešlos išeis oras."),
-    V("Užtepk padažą, užberk sūrio, mocarelos ir saliamio.","Užtepk padažą, užberk sūrio ir mocarelos."),
-    S("Kepk, kol kraštai išsipūs ir paruduos.",8)]},
+    V("Kiekvienai picai užtepk padažo (sumaišyk 2 v. š. majonezo ir 3 v. š. pomidorų padažo), užberk 80 g sūrio, pusę mocarelos ir saliamio.","Kiekvienai picai užtepk padažo (sumaišyk 2 v. š. majonezo ir 3 v. š. pomidorų padažo), užberk 80 g sūrio ir pusę mocarelos."),
+    S("Kepk, kol kraštai išsipūs ir paruduos. Kartok su kitomis picomis.",8)]},
 
 /* ---------- Užkandžiai ---------- */
-{n:"Spausti sumuštiniai", t:10, c:4, w:"abu",
- i:["4 batono riekės","60 g tarkuoto sūrio","2 v. š. česnakinio padažo","½ mocarelos rutulio",V("Saliamio dešrelė","½ paprikos")],
+{n:"Spausti sumuštiniai", t:10, c:4, w:"abu", p:2, u:SUM,
+ i:["{4|batono riekė|batono riekės|batono riekių}","{60 g} tarkuoto sūrio","{2 v. š.} česnakinio padažo","{½|mocarelos rutulys|mocarelos rutuliai|mocarelos rutulių|mocarelos rutulio}",V("{6|saliamio griežinėlis|saliamio griežinėliai|saliamio griežinėlių}","{½|paprika|paprikos|paprikų|paprikos}")],
  s:["Įjunk sumuštinių keptuvę, kad įkaistų.",
-    "Batono riekes vienoje pusėje patepk česnakiniu padažu.",
-    V("Ant padažu pateptos pusės sudėk sūrį, mocarelą ir saliamį, uždenk kita rieke.","Ant padažu pateptos pusės sudėk sūrį, mocarelą ir paprikos griežinėlius, uždenk kita rieke."),
+    "{4|batono riekę|batono riekes|batono riekių} vienoje pusėje patepk česnakiniu padažu (iš viso {2 v. š.}).",
+    V("Ant pusės riekių sudėk {60 g} sūrio, {½|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio} ir {6|saliamio griežinėlį|saliamio griežinėlius|saliamio griežinėlių}, uždenk kitomis riekėmis padažu į vidų.","Ant pusės riekių sudėk {60 g} sūrio, {½|mocarelos rutulį|mocarelos rutulius|mocarelos rutulių|mocarelos rutulio} ir {½|papriką|paprikas|paprikų|paprikos} griežinėliais, uždenk kitomis riekėmis padažu į vidų."),
     S("Dėk į keptuvę ir spausk, kol batonas taps auksinis, o sūris išsilydys.",4)]},
-{n:V("Virtos dešrelės su kečupu","Vegetariškos dešrelės su kečupu"), t:10, c:4, w:"man",
- i:[V("3–4 dešrelės","3–4 vegetariškos dešrelės"),"Kečupas","Batonas"],
+{n:V("Virtos dešrelės su kečupu","Vegetariškos dešrelės su kečupu"), t:10, c:4, w:"man", p:1,
+ i:[V("{3|dešrelė|dešrelės|dešrelių|dešrelės}","{3|vegetariška dešrelė|vegetariškos dešrelės|vegetariškų dešrelių|vegetariškos dešrelės}"),"Kečupas","{2|batono riekė|batono riekės|batono riekių}"],
  s:["Puode užvirink vandenį, tada sumažink ugnį, kad vanduo nebeburbuliuotų.",
-    V(S("Sudėk dešreles ir palaikyk karštame vandenyje.",4,"Verdančiame vandenyje dešrelės sprogsta."),S("Sudėk dešreles ir šildyk pagal pakuotės nurodymus.",4)),
-    "Patiek su kečupu ir batonu."]},
-{n:"Bulvytės fri air fryeryje", t:25, c:4, w:"abu", veg:1,
- i:["500 g šaldytų bulvyčių arba 4 bulvės","1 v. š. aliejaus (šviežioms)","Druska, paprika","Padažas pagal skonį"],
- s:[S("Jei naudoji šviežias bulves: supjaustyk ~1 cm šiaudeliais, pamirkyk šaltame vandenyje ir gerai nusausink.",0,"Mirkymas išplauna krakmolą – bulvytės būna traškesnės."),
-    "Šviežias bulvytes sumaišyk su aliejumi. Šaldytų nereikia.",
-    S("Suberk į air fryerį vienu sluoksniu ir kepk 200 °C.",10),
+    V(S("Sudėk {3|dešrelę|dešreles|dešrelių|dešrelės} ir palaikyk karštame vandenyje.",4,"Verdančiame vandenyje dešrelės sprogsta."),S("Sudėk {3|dešrelę|dešreles|dešrelių|dešrelės} ir šildyk pagal pakuotės nurodymus.",4)),
+    "Patiek su kečupu ir {2|batono rieke|batono riekėmis|batono riekių|batono riekės}."]},
+{n:"Bulvytės fri air fryeryje", t:25, c:4, w:"abu", veg:1, p:2,
+ i:["{500 g} šaldytų bulvyčių arba {4|bulvė|bulvės|bulvių|bulvės}","{1 v. š.} aliejaus (šviežioms)","Druska, paprika","Padažas pagal skonį"],
+ s:[S("Jei naudoji šviežias bulves: {4|bulvę|bulves|bulvių|bulvės} supjaustyk ~1 cm šiaudeliais, pamirkyk šaltame vandenyje ir gerai nusausink.",0,"Mirkymas išplauna krakmolą – bulvytės būna traškesnės."),
+    "Šviežias bulvytes sumaišyk su {1 v. š.} aliejaus. Šaldytų nereikia.",
+    S("Suberk į air fryerį vienu sluoksniu ir kepk 200 °C.",10,"Jei bulvyčių daug – kepk per kelis kartus."),
     S("Papurtyk krepšį ir kepk, kol taps auksinės ir traškios.",8),
     "Iškart pasūdyk, pabarstyk paprika ir patiek su padažu."]},
-{n:"Cukinija džiūvėsėliuose", t:30, c:4, w:"abu", veg:1,
- i:["1 cukinija","2 kiaušiniai","4 v. š. miltų","6 v. š. džiūvėsėlių","Druska, pipirai","Aliejus arba air fryeris","Česnakinis padažas patiekti"],
- s:["Cukiniją supjaustyk ~1 cm lazdelėmis arba griežinėliais, pasūdyk ir nusausink rankšluosčiu.",
-    "Paruošk tris dubenėlius: išplakti kiaušiniai, miltai, džiūvėsėliai.",
+{n:"Cukinija džiūvėsėliuose", t:30, c:4, w:"abu", veg:1, p:2,
+ i:["{1|cukinija|cukinijos|cukinijų|cukinijos}","{2|kiaušinis|kiaušiniai|kiaušinių}","{4 v. š.} miltų","{6 v. š.} džiūvėsėlių","Druska, pipirai","Aliejus arba air fryeris","Česnakinis padažas patiekti"],
+ s:["{1|cukiniją|cukinijas|cukinijų|cukinijos} supjaustyk ~1 cm lazdelėmis arba griežinėliais, pasūdyk ir nusausink rankšluosčiu.",
+    "Paruošk tris dubenėlius: {2|išplaktas kiaušinis|išplakti kiaušiniai|išplaktų kiaušinių}, {4 v. š.} miltų, {6 v. š.} džiūvėsėlių.",
     "Kiekvieną gabaliuką pamirkyk kiaušinyje, apvoliok miltuose, vėl pamirkyk kiaušinyje ir galiausiai apvoliok džiūvėsėliuose.",
     S("Kepk keptuvėje su ~5 mm aliejaus arba air fryeryje 200 °C, įpusėjus apversk.",12,"Keptuvėje užtenka 2–3 min kiekvienai pusei."),
     "Patiek karštus su česnakiniu padažu."]},
 
 /* ---------- Saldūs ---------- */
-{n:"Blynai su ledais ir uogiene", t:25, c:5, w:"abu", veg:1,
- i:["2 kiaušiniai","500 ml pieno","200 g miltų","Žiupsnelis druskos, 1 v. š. cukraus","1 v. š. aliejaus ir dar kepti","Vaniliniai ledai, uogienė"],
- s:["Dubenyje išplak kiaušinius su cukrumi ir druska.",
-    "Įpilk pusę pieno, įsijok miltus ir išmaišyk iki vientisos tirštos masės be gumulų.",
-    "Supilk likusį pieną ir šaukštą aliejaus, išmaišyk. Tešla turi būti skysta kaip grietinėlė.",
+{n:"Blynai su ledais ir uogiene", t:25, c:5, w:"abu", veg:1, p:3,
+ i:["{2|kiaušinis|kiaušiniai|kiaušinių}","{500 ml} pieno","{200 g} miltų","Žiupsnelis druskos, {1 v. š.} cukraus","{1 v. š.} aliejaus ir dar kepti","Vaniliniai ledai, uogienė"],
+ s:["Dubenyje išplak {2|kiaušinį|kiaušinius|kiaušinių} su {1 v. š.} cukraus ir žiupsneliu druskos.",
+    "Įpilk {250 ml} pieno, įsijok {200 g} miltų ir išmaišyk iki vientisos tirštos masės be gumulų.",
+    "Supilk likusius {250 ml} pieno ir {1 v. š.} aliejaus, išmaišyk. Tešla turi būti skysta kaip grietinėlė.",
     S("Leisk tešlai pastovėti.",10,"Blynai bus elastingesni ir mažiau plyš."),
     "Keptuvę gerai įkaitink ir patepk aliejumi. Supilk samtelį tešlos ir pakreipk keptuvę, kad pasklistų plonu sluoksniu.",
     S("Kepk, kol kraštai ims ruduoti, apversk ir pakepk kitą pusę. Kartok su visa tešla.",0,"~1 min pirmai pusei, 30 s antrai."),
     "Patiek su kaušeliu vanilinių ledų ir uogiene."]},
-{n:"Varškėčiai", t:25, c:5, w:"abu", veg:1,
- i:["400 g varškės","1 kiaušinis","3–4 v. š. miltų ir dar apvolioti","2 v. š. cukraus","Aliejus kepti","Grietinė, uogienė patiekti"],
- s:["Varškę sutrink šakute, kad neliktų gumulų.",
-    "Įmaišyk kiaušinį, cukrų ir miltus. Masė turi būti lipni, bet formuojama.",
+{n:"Varškėčiai", t:25, c:5, w:"abu", veg:1, p:3,
+ i:["{400 g} varškės","{1|kiaušinis|kiaušiniai|kiaušinių}","{3–4 v. š.} miltų ir dar apvolioti","{2 v. š.} cukraus","Aliejus kepti","Grietinė, uogienė patiekti"],
+ s:["{400 g} varškės sutrink šakute, kad neliktų gumulų.",
+    "Įmaišyk {1|kiaušinį|kiaušinius|kiaušinių}, {2 v. š.} cukraus ir {3–4 v. š.} miltų. Masė turi būti lipni, bet formuojama.",
     "Sušlapintomis rankomis formuok ~1,5 cm storio paplotėlius ir apvoliok miltuose.",
     S("Keptuvėje ant vidutinės ugnies įkaitink aliejų ir kepk, kol apačia taps auksinė.",4),
     S("Apversk ir kepk kitą pusę.",4),
     "Patiek šiltus su grietine arba uogiene."]},
-{n:"Bananų kokteilis", t:5, c:5, w:"abu", veg:1,
- i:["1 bananas","150 ml bananų sulčių","200 ml pieno","2 kaušeliai vanilinių ledų"],
- s:["Bananą nulupk ir supjaustyk gabaliukais.",
-    "Į blenderį sudėk bananą, supilk sultis ir pieną, įdėk ledus.",
+{n:"Bananų kokteilis", t:5, c:5, w:"abu", veg:1, p:2,
+ i:["{1|bananas|bananai|bananų|banano}","{150 ml} bananų sulčių","{200 ml} pieno","{2|kaušelis vanilinių ledų|kaušeliai vanilinių ledų|kaušelių vanilinių ledų}"],
+ s:["{1|bananą|bananus|bananų|banano} nulupk ir supjaustyk gabaliukais.",
+    "Į blenderį sudėk bananą, supilk {150 ml} sulčių ir {200 ml} pieno, įdėk {2|kaušelį ledų|kaušelius ledų|kaušelių ledų}.",
     "Plak, kol masė taps vientisa ir puri.",
     "Supilk į stiklines ir gerk iškart."]}
 ];
 
 const st = x => typeof x === 'string' ? {t: x} : x;
+/* kiekiai pagal porcijas */
+const pn = s => ({'½':.5,'¼':.25,'¾':.75})[s] ?? parseFloat(String(s).replace(',', '.'));
+const fmtN = n => { const i = Math.floor(n + 1e-9), fr = Math.round((n - i) * 100) / 100, g = {0.25:'¼',0.5:'½',0.75:'¾'}[fr];
+  return fr < .01 ? String(i) : g ? (i ? i : '') + g : String(Math.round(n * 10) / 10).replace('.', ','); };
+const ltf = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+const rAmt = x => x >= 100 ? Math.round(x / 10) * 10 : x >= 20 ? Math.round(x / 5) * 5 : x >= 5 ? Math.round(x) : x >= 1 ? Math.round(x * 2) / 2 : Math.max(.25, Math.round(x * 4) / 4);
+function amt(s, f){
+  return String(s).replace(/\{([^}]+)\}/g, (_, inner) => {
+    const P5 = inner.split('|');
+    if (P5.length > 1){
+      const vals = P5[0].trim().split('–').map(pn);
+      const sc = vals.map(v => { const st = Number.isInteger(v) ? 1 : v < .5 ? .25 : .5; return Math.max(st, Math.round(v * f / st) * st); });
+      const last = sc[sc.length - 1];
+      const form = Number.isInteger(last) ? ltf(last, P5[1], P5[2], P5[3] || P5[2]) : (P5[4] || P5[2]);
+      return (sc.length > 1 && sc[0] !== sc[1] ? sc.map(fmtN).join('–') : fmtN(last)) + ' ' + form;
+    }
+    return f === 1 ? inner : inner.replace(/\d+(?:,\d+)?|[½¼¾]/g, m => fmtN(rAmt(pn(m) * f)));
+  });
+}
+let sv = 1;
+const F = () => sv / (cur.p || 1);
+const UNIT = r => r.u || ['porcija','porcijos','porcijų'];
+const svText = () => sv + ' ' + ltf(sv, ...UNIT(cur));
 const hasAlt = r => JSON.stringify(r).includes('"m":');
 const pick = (x, veg) => (x && typeof x === 'object' && 'm' in x) ? (veg ? x.v : x.m) : x;
 const pickAll = (arr, veg) => arr.map(x => pick(x, veg)).filter(x => x != null);
@@ -703,7 +738,7 @@ function render(){
     const tags = (r.veg ? '<span class="tag v">veg.</span>' : (hasAlt(r) && !veg ? '<span class="tag v">+ veg.</span>' : ''))
       + ((REV[slug(r)]||[]).length ? `<span class="tag r">★ ${nf(avg(slug(r)))}</span>` : '')
       + (r.w === 'jai' ? '<span class="tag">jai</span>' : r.w === 'man' ? '<span class="tag">man</span>' : '');
-    return `<li><button class="item" data-i="${idx}" data-v="${veg ? 1 : 0}"><b>${pick(r.n, veg)}</b><small>${tags}${miss ? (miss.length ? `<span class="miss">Trūksta: ${miss.join(', ').toLowerCase()}</span>` : '<span class="miss ok">Turi viską</span>') : pickAll(r.i, veg).slice(0,3).map(x => x.split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
+    return `<li><button class="item" data-i="${idx}" data-v="${veg ? 1 : 0}"><b>${pick(r.n, veg)}</b><small>${tags}${miss ? (miss.length ? `<span class="miss">Trūksta: ${miss.join(', ').toLowerCase()}</span>` : '<span class="miss ok">Turi viską</span>') : pickAll(r.i, veg).slice(0,3).map(x => amt(x, 1).split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
   }).join('');
 }
 
@@ -712,11 +747,14 @@ function fill(){
   const r = cur;
   dt.textContent = pick(r.n, curVeg);
   dm.textContent = `Apie ${r.t} min${r.x ? ' ' + r.x + ' tešlos brandinimo' : ''}` + (r.src ? ` · pagal ${r.src}` : '');
-  di.innerHTML = pickAll(r.i, curVeg).map(x => `<li>${x}</li>`).join('');
-  ds.innerHTML = pickAll(r.s, curVeg).map(st).map(x => `<li>${x.t}${x.h ? `<small class="stip">${x.h}</small>` : ''}</li>`).join('');
+  di.innerHTML = pickAll(r.i, curVeg).map(x => `<li>${amt(x, F())}</li>`).join('');
+  svN.textContent = svText(); svMinus.disabled = sv <= 1; svPlus.disabled = sv >= 20;
+  ds.innerHTML = pickAll(r.s, curVeg).map(st).map(x => `<li>${amt(x.t, F())}${x.h ? `<small class="stip">${amt(x.h, F())}</small>` : ''}</li>`).join('');
   vt.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', (b.dataset.v === '1') === curVeg));
   showReviews();
 }
+svMinus.onclick = () => { if (sv > 1){ sv--; endSel(); fill(); } };
+svPlus.onclick = () => { if (sv < 20){ sv++; endSel(); fill(); } };
 vt.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   curVeg = b.dataset.v === '1'; endSel(); fill();
@@ -725,7 +763,7 @@ list.onclick = e => {
   const el = e.target.closest('.item'); if (!el) return;
   cur = R[el.dataset.i];
   vt.hidden = !hasAlt(cur);
-  curVeg = el.dataset.v === '1';
+  curVeg = el.dataset.v === '1'; sv = cur.p || 1;
   endSel(); fill(); d.showModal();
 };
 d.addEventListener('click', e => { if (e.target === d) d.close(); });
@@ -776,15 +814,15 @@ cpills.onclick = e => { const b = e.target.closest('button'); if (b){ k = +b.dat
 function showStep(){
   csegs.innerHTML = Array.from({length: steps.length + 1}, (_, j) => `<i class="${j <= k ? 'on' : ''}"></i>`).join('');
   if (k === 0){
-    cno.textContent = 'Pasiruošk';
+    cno.textContent = `Pasiruošk, ${svText()}`;
     ctxt.innerHTML = '<p class="prephint">Pažymėk, ką jau susidėjai.</p><ul class="prep">' + ing.map(x => `<li>${x}</li>`).join('') + '</ul>';
     ctip.hidden = true;
   } else {
     const s = steps[k-1];
     cno.textContent = `Žingsnis ${k} iš ${steps.length}`;
-    ctxt.textContent = s.t;
+    ctxt.textContent = amt(s.t, F());
     ctip.hidden = !s.h;
-    if (s.h) ctip.innerHTML = `<b>Patarimas</b>${s.h}`;
+    if (s.h) ctip.innerHTML = `<b>Patarimas</b>${amt(s.h, F())}`;
   }
   drawTimer();
   cprev.disabled = k === 0;
@@ -795,7 +833,7 @@ ctxt.onclick = e => { const li = e.target.closest('.prep li'); if (li) li.classL
 
 async function startCook(){
   stopAll();
-  steps = pickAll(cur.s, curVeg).map(st); ing = pickAll(cur.i, curVeg); k = 0;
+  steps = pickAll(cur.s, curVeg).map(st); ing = pickAll(cur.i, curVeg).map(x => amt(x, F())); k = 0;
   ctitle.textContent = pick(cur.n, curVeg);
   csteps.hidden = false; crate.hidden = true;
   showStep(); ck.showModal();
@@ -1101,7 +1139,7 @@ function renderSearch(veg){
   if (!rows.length){ list.innerHTML = `<li class="empty">Pagal „${esc(Q.trim())}“ nieko nerasta. Pabandyk kitą žodį, pvz. produktą.</li>`; return; }
   list.innerHTML = `<li class="found">Rasta: ${rows.length}</li>` + rows.map(({r, idx}) => {
     const v = veg || (diet === 'all' && hasAlt(r) && words.some(w => w.startsWith('veg') || w === 'be'));
-    return `<li><button class="item" data-i="${idx}" data-v="${v ? 1 : 0}"><b>${pick(r.n, v)}</b><small>${r.veg ? '<span class="tag v">veg.</span>' : hasAlt(r) && !v ? '<span class="tag v">+ veg.</span>' : ''}${r.w === 'jai' ? '<span class="tag">jai</span>' : r.w === 'man' ? '<span class="tag">man</span>' : ''}${pickAll(r.i, v).slice(0,3).map(x => x.split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
+    return `<li><button class="item" data-i="${idx}" data-v="${v ? 1 : 0}"><b>${pick(r.n, v)}</b><small>${r.veg ? '<span class="tag v">veg.</span>' : hasAlt(r) && !v ? '<span class="tag v">+ veg.</span>' : ''}${r.w === 'jai' ? '<span class="tag">jai</span>' : r.w === 'man' ? '<span class="tag">man</span>' : ''}${pickAll(r.i, v).slice(0,3).map(x => amt(x, 1).split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
   }).join('');
 }
 const topEl = document.querySelector('.top'), qIn = document.getElementById('q');
