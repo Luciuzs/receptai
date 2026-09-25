@@ -151,11 +151,51 @@ textarea.field{resize:none; height:92px}
 .photo input{position:absolute; width:1px; height:1px; opacity:0}
 .rate .err{color:#C0392B; font-size:15px; min-height:1.4em; margin:8px 0 0}
 .stars button:focus-visible,.rate-btn:focus-visible,.photo:focus-within{outline:3px solid var(--accent); outline-offset:2px}
+.top h1{min-width:0; font-size:clamp(2.8rem, 13.5vw, 5.2rem)}
+.top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px}
+.shop-btn{flex:none; margin-top:calc(26px + env(safe-area-inset-top,0px)); font:inherit; font-weight:700; font-size:15px; color:var(--ink);
+  background:var(--surface); border:1.5px solid var(--line); border-radius:999px; padding:8px 14px; cursor:pointer; display:flex; align-items:center; gap:7px}
+.shop-btn b{min-width:22px; height:22px; border-radius:11px; background:var(--accent); color:var(--accent-ink); font-size:13px; display:grid; place-items:center; padding:0 6px}
+.shop-btn b:empty{display:none}
+.have{flex:none; font:inherit; font-size:15px; font-weight:700; color:var(--ink); background:var(--surface);
+  border:1.5px solid var(--accent); border-radius:999px; padding:7px 14px; cursor:pointer}
+.have.on{background:var(--accent); color:var(--accent-ink)}
+.miss{color:var(--muted)}
+.miss.ok{color:var(--leaf); font-weight:600}
+.sub{color:var(--muted); font-size:15px; margin:4px 0 6px}
+.pick{display:flex; flex-wrap:wrap; gap:7px}
+.pick button{font:inherit; font-size:15px; font-weight:600; color:var(--ink); background:none; border:1.5px solid var(--line); border-radius:999px; padding:7px 13px; cursor:pointer}
+.pick button[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--bg)}
+.foot{position:sticky; bottom:calc(-28px - env(safe-area-inset-bottom,0px)); margin:18px -22px calc(-28px - env(safe-area-inset-bottom,0px));
+  padding:12px 22px calc(16px + env(safe-area-inset-bottom,0px)); background:var(--surface); border-top:1.5px solid var(--line);
+  display:grid; grid-template-columns:1fr 2fr; gap:10px}
+.foot[hidden]{display:none}
+.foot.inline{position:static; margin:12px 0 0; padding:0; border:0; background:none}
+.foot button{font:inherit; font-weight:800; font-size:16px; border-radius:14px; padding:13px; cursor:pointer; border:0; background:var(--bg); color:var(--ink)}
+.foot button.next{background:var(--accent); color:var(--accent-ink)}
+.foot button:disabled{opacity:.4; cursor:default}
+.sel li{list-style:none; margin-left:-22px; padding:7px 0 7px 32px; position:relative; cursor:pointer}
+.sel li::before{content:""; position:absolute; left:0; top:9px; width:20px; height:20px; border-radius:6px; border:1.5px solid var(--line); background:var(--bg)}
+.sel li.on::before{background:var(--accent); border-color:var(--accent)}
+.sel li.on::after{content:""; position:absolute; left:7px; top:12px; width:5px; height:10px; border:solid var(--accent-ink); border-width:0 2.5px 2.5px 0; transform:rotate(45deg)}
+.add-row{display:flex; gap:8px; margin:14px 0 6px}
+.add-row .field{margin:0}
+.add-row button{flex:none; width:48px; border-radius:14px; border:0; background:var(--ink); color:var(--bg); font-size:24px; cursor:pointer}
+.shop{list-style:none; padding:0 !important; margin:0}
+.shop li{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1.5px solid var(--line); margin:0 !important; cursor:pointer}
+.shop .box{flex:none; width:24px; height:24px; border-radius:50%; border:1.5px solid var(--line); position:relative}
+.shop li.done .box{background:var(--accent); border-color:var(--accent)}
+.shop li.done .box::after{content:""; position:absolute; left:8px; top:4px; width:5px; height:10px; border:solid var(--accent-ink); border-width:0 2.5px 2.5px 0; transform:rotate(45deg)}
+.shop li.done .t{text-decoration:line-through; color:var(--muted)}
+.shop small{display:block; color:var(--muted); font-size:13.5px}
+.shop .x2{margin-left:auto; all:unset; margin-left:auto; color:var(--muted); font-size:18px; padding:4px 8px; cursor:pointer}
+.have:focus-visible,.shop-btn:focus-visible,.pick button:focus-visible,.foot button:focus-visible,.add-row button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap top">
   <h1>Ką valgom?</h1>
+  <button class="shop-btn" id="shopBtn" aria-label="Pirkinių sąrašas">Pirkiniai <b id="shopN"></b></button>
 </div>
 <div class="filters"><div class="wrap">
   <div class="seg" id="diet" role="group" aria-label="Mityba">
@@ -164,6 +204,7 @@ textarea.field{resize:none; height:92px}
     <button data-d="meat" aria-pressed="false">Su mėsa</button>
   </div>
   <div class="chips" id="cats">
+    <button class="have" id="haveBtn">Ką turiu?</button>
     <select class="time" id="time" aria-label="Kiek laiko">
       <option value="999">Bet kiek laiko</option>
       <option value="15">Iki 15 min</option>
@@ -182,10 +223,31 @@ textarea.field{resize:none; height:92px}
       <button data-v="0">Su mėsa</button><button class="veg" data-v="1">Vegetariškai</button>
     </div>
     <button class="go" id="go">Gaminti</button>
-    <h3>Reikės</h3><ul id="di"></ul>
+    <div class="rv-head"><h3>Reikės</h3><button class="rate-btn" id="toShop">+ Į pirkinius</button></div>
+    <ul id="di"></ul>
+    <div class="foot inline" id="selFoot" hidden><button id="selCancel">Atšaukti</button><button class="next" id="selAdd">Pridėti</button></div>
     <h3>Gaminimas</h3><ol id="ds"></ol>
     <div class="rv-head"><h3>Atsiliepimai<span class="avg" id="ravg"></span></h3><button class="rate-btn" id="rbtn">Įvertinti</button></div>
     <ul class="rv" id="rlist"></ul>
+  </div>
+</dialog>
+
+<dialog id="hv" aria-labelledby="hvt">
+  <div class="sheet">
+    <header><h2 id="hvt">Ką turi?</h2><button class="close" aria-label="Uždaryti" onclick="hv.close()">✕</button></header>
+    <p class="sub">Pažymėk, kas yra šaldytuve ar spintelėje. Druską, aliejų ir prieskonius laikome turimais.</p>
+    <div id="hvGroups"></div>
+    <div class="foot"><button id="hvClear">Išvalyti</button><button class="next" id="hvGo">Rodyti receptus</button></div>
+  </div>
+</dialog>
+
+<dialog id="sh" aria-labelledby="sht">
+  <div class="sheet">
+    <header><h2 id="sht">Pirkiniai</h2><button class="close" aria-label="Uždaryti" onclick="sh.close()">✕</button></header>
+    <div class="add-row"><input class="field" id="shIn" placeholder="Pridėti produktą" enterkeyhint="done"><button id="shAdd" aria-label="Pridėti">+</button></div>
+    <ul class="shop" id="shList"></ul>
+    <p class="sub" id="shMsg"></p>
+    <div class="foot" id="shFoot" hidden><span></span><button class="next" id="shClear">Išvalyti nupirktus</button></div>
   </div>
 </dialog>
 
@@ -398,16 +460,26 @@ document.getElementById('diet').addEventListener('click', e => {
 
 function render(){
   const veg = diet === 'veg';
-  const rows = R.map((r, idx) => ({r, idx}))
+  let rows = R.map((r, idx) => ({r, idx, v: veg}))
     .filter(({r}) => r.t <= max && (cat < 0 || r.c === cat))
     .filter(({r}) => diet === 'all' || (veg ? (r.veg || hasAlt(r)) : !r.veg))
     .sort((a, b) => a.r.t - b.r.t);
-  if (!rows.length){ list.innerHTML = '<li class="empty">Pagal šiuos filtrus receptų nėra. Pabandyk ilgesnį laiką ar kitą kategoriją.</li>'; return; }
-  list.innerHTML = rows.map(({r, idx}) => {
+  if (HAVE.size){
+    rows = rows.map(x => {
+      const opts = diet === 'all' && hasAlt(x.r) ? [false, true] : [x.v];
+      const best = opts.map(v => ({v, ...match(x.r, v)})).sort((a, b) => a.miss.length - b.miss.length)[0];
+      return {...x, ...best};
+    }).filter(x => x.got > 0 && x.miss.length <= 2)
+      .sort((a, b) => a.miss.length - b.miss.length || b.got - a.got || a.r.t - b.r.t);
+  }
+  haveBtn.textContent = HAVE.size ? `Turiu: ${HAVE.size}` : 'Ką turiu?';
+  haveBtn.classList.toggle('on', HAVE.size > 0);
+  if (!rows.length){ list.innerHTML = `<li class="empty">${HAVE.size ? 'Iš pažymėtų produktų tinkamų receptų nerasta. Pažymėk daugiau produktų arba pakeisk filtrus.' : 'Pagal šiuos filtrus receptų nėra. Pabandyk ilgesnį laiką ar kitą kategoriją.'}</li>`; return; }
+  list.innerHTML = rows.map(({r, idx, v: rv, miss}) => { const veg = rv;
     const tags = (r.veg ? '<span class="tag v">veg.</span>' : (hasAlt(r) && !veg ? '<span class="tag v">+ veg.</span>' : ''))
       + ((REV[slug(r)]||[]).length ? `<span class="tag r">★ ${nf(avg(slug(r)))}</span>` : '')
       + (r.w === 'jai' ? '<span class="tag">jai</span>' : r.w === 'man' ? '<span class="tag">man</span>' : '');
-    return `<li><button class="item" data-i="${idx}"><b>${pick(r.n, veg)}</b><small>${tags}${pickAll(r.i, veg).slice(0,3).map(x => x.split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
+    return `<li><button class="item" data-i="${idx}" data-v="${veg ? 1 : 0}"><b>${pick(r.n, veg)}</b><small>${tags}${miss ? (miss.length ? `<span class="miss">Trūksta: ${miss.join(', ').toLowerCase()}</span>` : '<span class="miss ok">Turi viską</span>') : pickAll(r.i, veg).slice(0,3).map(x => x.split(':').pop().trim()).join(', ')}</small><span class="min">${r.t} min${r.x ? `<i>${r.x}</i>` : ''}</span></button></li>`;
   }).join('');
 }
 
@@ -423,14 +495,14 @@ function fill(){
 }
 vt.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  curVeg = b.dataset.v === '1'; fill();
+  curVeg = b.dataset.v === '1'; endSel(); fill();
 });
 list.onclick = e => {
   const el = e.target.closest('.item'); if (!el) return;
   cur = R[el.dataset.i];
   vt.hidden = !hasAlt(cur);
-  curVeg = diet === 'veg';
-  fill(); d.showModal();
+  curVeg = el.dataset.v === '1';
+  endSel(); fill(); d.showModal();
 };
 d.addEventListener('click', e => { if (e.target === d) d.close(); });
 
@@ -563,8 +635,151 @@ rsave.onclick = async () => {
   }
 };
 
+/* ---------- Ką turiu? ---------- */
+const GROUPS = {
+  "Pieno produktai ir kiaušiniai": ["Kiaušiniai","Pienas","Grietinė","Grietinėlė","Sviestas","Sūris","Mocarela","Feta","Varškė","Jogurtas","Kefyras","Tepamas sūrelis","Ledai"],
+  "Mėsa ir pakaitalai": ["Vištiena","Dešrelės","Kumpis","Saliamis","Vegetariškos dešrelės"],
+  "Daržovės ir vaisiai": ["Bulvės","Svogūnai","Morkos","Pomidorai","Agurkai","Paprika","Cukinija","Kalafioras","Brokoliai","Kopūstas","Moliūgas","Burokėliai","Pievagrybiai","Avokadas","Bananai"],
+  "Sandėliukas": ["Makaronai","Ryžiai","Grikiai","Miltai","Avižiniai dribsniai","Batonas","Lavašas","Picos paplotėlis","Šaldyta pica","Pomidorų padažas","Konservuoti pomidorai","Avinžirniai","Uogienė","Granola","Kukurūzų dribsniai"]
+};
+const P = {
+  "svogunainis":["Batonas","Tepamas sūrelis","Avokadas","Svogūnai","Pomidorai"],
+  "paturbintas-avokado-tostas":["Batonas","Tepamas sūrelis","Avokadas","Kiaušiniai"],
+  "paprastas-avokado-tostas":["Batonas","Tepamas sūrelis","Avokadas"],
+  "lavasas-su-kiausiniais-ir-avokadu":["Lavašas","Kiaušiniai","Paprika","Pomidorai","Avokadas"],
+  "penkiu-grudu-kose":["Avižiniai dribsniai","Grietinė","Uogienė"],
+  "granola-su-jogurtu":["Jogurtas","Granola"],
+  "virti-kiausiniai-su-batonu":["Kiaušiniai","Batonas"],
+  "kiausiniene-su-pomidorais":["Kiaušiniai","Pomidorai","Svogūnai"],
+  "omletas-su-suriu-ir-kumpiu":["Kiaušiniai","Pienas","Sūris",V("Kumpis","Paprika")],
+  "varske-su-grietine-ir-krapais":["Varškė","Grietinė"],
+  "saksuka-su-feta":["Kiaušiniai","Konservuoti pomidorai","Svogūnai","Paprika","Feta"],
+  "kopustu-sriuba":["Kopūstas","Morkos","Svogūnai","Bulvės"],
+  "saltibarsciai":["Kefyras","Burokėliai","Agurkai","Kiaušiniai","Bulvės"],
+  "moliugu-sriuba":["Moliūgas","Svogūnai","Morkos","Grietinėlė"],
+  "morku-sriuba":["Morkos","Bulvės","Svogūnai"],
+  "vistienos-sriuba-su-makaronais":[V("Vištiena","Avinžirniai"),"Morkos","Svogūnai","Bulvės","Makaronai"],
+  "darzoviu-troskinys":["Cukinija","Paprika","Morkos","Svogūnai","Bulvės","Konservuoti pomidorai"],
+  "troskintas-kalafioras-su-suriu":["Kalafioras","Pienas","Sūris","Sviestas"],
+  "makaronai-su-keptu-fetos-suriu":["Feta","Pomidorai","Makaronai"],
+  "kreminiai-makaronai-su-vistiena":[V("Vištiena","Pievagrybiai"),"Makaronai","Grietinėlė","Sūris"],
+  "vistiena-su-grietinele-ir-ryziais":[V("Vištiena","Sūris"),"Ryžiai","Grietinėlė"],
+  "ryziai-su-grietinele-ir-suriu":["Ryžiai","Grietinėlė","Sūris"],
+  "makaronai-su-suriu":["Makaronai","Sūris","Sviestas"],
+  "makaronai-su-desrelemis-pomidoru-padaze":["Makaronai",V("Dešrelės","Pievagrybiai"),"Svogūnai","Pomidorų padažas"],
+  "keptieji-ryziai-su-kiausiniu":["Ryžiai","Kiaušiniai","Morkos"],
+  "makaronu-apkepas":["Makaronai","Kiaušiniai","Pienas",V("Kumpis","Brokoliai"),"Sūris"],
+  "grikiu-kose-su-grietine-ir-sviestu":["Grikiai","Grietinė","Sviestas"],
+  "bulviu-kose-su-prieskoniais":["Bulvės","Pienas","Sviestas"],
+  "keptos-bulves-su-svogunais":["Bulvės","Svogūnai"],
+  "orkaiteje-keptos-bulves":["Bulvės"],
+  "bulviu-blynai":["Bulvės","Svogūnai","Kiaušiniai"],
+  "cukiniju-blynai":["Cukinija","Kiaušiniai","Miltai"],
+  "korejietiska-traski-vistiena":[V("Vištiena","Kalafioras"),"Kiaušiniai","Kukurūzų dribsniai"],
+  "pica-is-lidl-margaritos":["Šaldyta pica","Sūris","Mocarela",V("Saliamis",null)],
+  "pica-ant-pirkto-paplotelio":["Picos paplotėlis","Pomidorų padažas","Sūris","Mocarela",V("Saliamis",null)],
+  "pica-nuo-nulio":["Miltai","Pomidorų padažas","Sūris","Mocarela",V("Saliamis",null)],
+  "spausti-sumustiniai":["Batonas","Sūris","Mocarela",V("Saliamis","Paprika")],
+  "virtos-desreles-su-kecupu":[V("Dešrelės","Vegetariškos dešrelės"),"Batonas"],
+  "bulvytes-fri-air-fryeryje":["Bulvės"],
+  "cukinija-dziuveseliuose":["Cukinija","Kiaušiniai","Miltai"],
+  "blynai-su-ledais-ir-uogiene":["Kiaušiniai","Pienas","Miltai","Ledai","Uogienė"],
+  "varskeciai":["Varškė","Kiaušiniai","Miltai"],
+  "bananu-kokteilis":["Bananai","Pienas","Ledai"]
+};
+const HAVE = new Set();
+function match(r, veg){
+  const need = pickAll(P[slug(r)] || [], veg);
+  const miss = need.filter(x => !HAVE.has(x));
+  return {miss, got: need.length - miss.length};
+}
+const hv = document.getElementById('hv');
+hvGroups.innerHTML = Object.entries(GROUPS).map(([g, items]) =>
+  `<h3>${g}</h3><div class="pick">${items.map(x => `<button aria-pressed="false">${x}</button>`).join('')}</div>`).join('');
+function hvCount(){
+  const n = HAVE.size ? R.filter(r => (diet === 'all' && hasAlt(r) ? [false, true] : [diet === 'veg'])
+    .some(v => { const m = match(r, v); return m.got > 0 && m.miss.length <= 2; })).length : 0;
+  hvGo.textContent = HAVE.size ? `Rodyti receptus (${n})` : 'Rodyti receptus';
+}
+hvGroups.onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const on = b.getAttribute('aria-pressed') !== 'true';
+  b.setAttribute('aria-pressed', on); on ? HAVE.add(b.textContent) : HAVE.delete(b.textContent);
+  hvCount();
+};
+haveBtn.onclick = () => { hvCount(); hv.showModal(); };
+hvClear.onclick = () => { HAVE.clear(); hvGroups.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', false)); hvCount(); render(); hv.close(); };
+hvGo.onclick = () => { render(); hv.close(); window.scrollTo({top: 0}); };
+hv.addEventListener('click', e => { if (e.target === hv) hv.close(); });
+
+/* ---------- Pirkinių sąrašas ---------- */
+const SH = SB + '/rest/v1/shopping', SHH = {apikey: SK, 'content-type': 'application/json', Prefer: 'return=representation'};
+const sh = document.getElementById('sh');
+let SHOP = [];
+function drawShop(){
+  const open = SHOP.filter(x => !x.done), done = SHOP.filter(x => x.done);
+  shopN.textContent = open.length || '';
+  shList.innerHTML = [...open, ...done].map(x => `<li data-id="${x.id}" class="${x.done ? 'done' : ''}"><span class="box"></span><span class="t">${esc(x.item)}${x.recipe ? `<small>${esc(x.recipe)}</small>` : ''}</span><button class="x2" data-del="${x.id}" aria-label="Ištrinti">✕</button></li>`).join('');
+  shMsg.textContent = SHOP.length ? '' : 'Sąrašas tuščias. Pridėk produktų čia arba iš recepto.';
+  shFoot.hidden = !done.length;
+  shClear.textContent = `Išvalyti nupirktus (${done.length})`;
+}
+async function loadShop(){
+  try{ const r = await fetch(SH + '?select=*&order=created_at.asc', {headers: {apikey: SK}}); if (r.ok){ SHOP = await r.json(); drawShop(); } }catch(e){}
+}
+async function addShop(items, recipe){
+  const r = await fetch(SH, {method: 'POST', headers: SHH, body: JSON.stringify(items.map(item => ({item, recipe: recipe || null})))});
+  if (!r.ok) throw 0;
+  SHOP.push(...await r.json()); drawShop();
+}
+shopBtn.onclick = () => { drawShop(); sh.showModal(); loadShop(); };
+async function addTyped(){
+  const v = shIn.value.trim(); if (!v) return;
+  shIn.value = '';
+  try{ await addShop([v]); }catch(e){ shMsg.textContent = 'Nepavyko pridėti. Patikrink internetą.'; }
+}
+shAdd.onclick = addTyped;
+shIn.onkeydown = e => { if (e.key === 'Enter') addTyped(); };
+shList.onclick = async e => {
+  const del = e.target.closest('[data-del]');
+  if (del){
+    const id = +del.dataset.del; SHOP = SHOP.filter(x => x.id !== id); drawShop();
+    fetch(SH + '?id=eq.' + id, {method: 'DELETE', headers: SHH}).catch(() => {});
+    return;
+  }
+  const li = e.target.closest('li'); if (!li) return;
+  const x = SHOP.find(s => s.id === +li.dataset.id); x.done = !x.done; drawShop();
+  fetch(SH + '?id=eq.' + x.id, {method: 'PATCH', headers: SHH, body: JSON.stringify({done: x.done})}).catch(() => {});
+};
+shClear.onclick = () => {
+  const ids = SHOP.filter(x => x.done).map(x => x.id); SHOP = SHOP.filter(x => !x.done); drawShop();
+  fetch(SH + '?id=in.(' + ids.join(',') + ')', {method: 'DELETE', headers: SHH}).catch(() => {});
+};
+sh.addEventListener('click', e => { if (e.target === sh) sh.close(); });
+
+/* recepto ingredientai -> pirkiniai */
+function endSel(){ di.classList.remove('sel'); di.querySelectorAll('li').forEach(li => li.classList.remove('on')); selFoot.hidden = true; toShop.hidden = false; }
+function selCount(){ const n = di.querySelectorAll('li.on').length; selAdd.textContent = n ? `Pridėti (${n})` : 'Pridėti'; selAdd.disabled = !n; }
+toShop.onclick = () => {
+  di.classList.add('sel'); selFoot.hidden = false; toShop.hidden = true;
+  if (HAVE.size){
+    const miss = match(cur, curVeg).miss.map(m => m.toLowerCase().slice(0, 5));
+    di.querySelectorAll('li').forEach(li => { if (miss.some(m => li.textContent.toLowerCase().includes(m))) li.classList.add('on'); });
+  }
+  selCount();
+};
+di.onclick = e => { if (!di.classList.contains('sel')) return; const li = e.target.closest('li'); if (li){ li.classList.toggle('on'); selCount(); } };
+selCancel.onclick = endSel;
+selAdd.onclick = async () => {
+  const items = [...di.querySelectorAll('li.on')].map(li => li.textContent);
+  selAdd.disabled = true; selAdd.textContent = 'Pridedama…';
+  try{ await addShop(items, pick(cur.n, curVeg)); endSel(); toShop.textContent = 'Pridėta ✓'; setTimeout(() => toShop.textContent = '+ Į pirkinius', 2000); }
+  catch(e){ selAdd.disabled = false; selAdd.textContent = 'Nepavyko, bandyk dar'; }
+};
+
 render();
 loadReviews();
+loadShop();
 </script>
 </body>
 </html>
